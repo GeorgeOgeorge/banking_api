@@ -6,7 +6,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from banking.api.utils.serializers import CreateLoanRequestModel, CreateLoanRequestSerializer, LoanResponseSerializer
+from banking.api.utils.serializers import (CreateLoanRequestModel,
+                                           CreateLoanRequestSerializer,
+                                           CreateLoanResponseSerializer)
 from banking.api.utils.utils import create_loan
 
 
@@ -14,7 +16,7 @@ from banking.api.utils.utils import create_loan
     method='post',
     request_body=CreateLoanRequestSerializer,
     responses={
-        201: LoanResponseSerializer,
+        201: CreateLoanResponseSerializer,
         400: 'Occurs if payload is not in a valid schema.',
         500: 'Occurs if an error occurs while requesting loans.',
     },
