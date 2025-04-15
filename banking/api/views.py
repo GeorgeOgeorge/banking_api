@@ -8,8 +8,11 @@ from rest_framework.response import Response
 
 from banking.api.utils.serializers import (CreateLoanRequestModel,
                                            CreateLoanRequestSerializer,
-                                           CreateLoanResponseSerializer)
-from banking.api.utils.utils import create_loan
+                                           CreateLoanResponseSerializer,
+                                           ListLoansQueryParams,
+                                           ListLoansQueryParamsSerializer,
+                                           ListLoansResponse)
+from banking.api.utils.utils import create_loan, list_loans
 
 
 @swagger_auto_schema(
@@ -47,3 +50,38 @@ def create_loan_request(request: Request) -> Response:
         return Response({"error": "Error while requesting loan"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(loan, status=status.HTTP_201_CREATED)
+
+@swagger_auto_schema(
+    method='get',
+    query_serializer=ListLoansQueryParamsSerializer,
+    responses={
+        200: ListLoansResponse(many=True),
+        400: 'Occurs if query params are not in a valid schema.',
+        500: 'Occurs if an error occurs while requesting loans.',
+    },
+    operation_description="Returns user requested loans",
+    security=[{'Bearer': []}],
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_loans_route(request: Request) -> Response:
+    """
+    Handles GET requests to retrieve a list of loans associated with the authenticated user.
+
+    Args:
+        request (Request): HTTP request object containing user credentials and query parameters.
+
+    Returns:
+        Response with a list of user's requested loans
+    """
+    try:
+        query_params = ListLoansQueryParams(**request.query_params)
+    except ValidationError as query_params_error:
+        return Response(query_params_error.json(), status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        loans = list_loans(request, query_params)
+    except Exception:
+        return Response({"error": "Error fetching user loans"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response(loans, status=status.HTTP_200_OK)
