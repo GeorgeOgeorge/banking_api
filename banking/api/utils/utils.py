@@ -1,8 +1,11 @@
 from django.db import connection
 from rest_framework.request import Request
 
-from banking.api.utils.queries import CREATE_LOAN_QUERY
-from banking.api.utils.serializers import CreateLoanRequestModel
+from banking.api.utils.queries import CREATE_LOAN_QUERY, LIST_LOAN_QUERY
+from banking.api.utils.serializers import (
+    CreateLoanRequestModel,
+    ListLoansQueryParams
+)
 
 
 def create_loan(
@@ -47,3 +50,38 @@ def create_loan(
         }
 
     return loan
+
+
+def list_loans(
+    request: Request,
+    query_params: ListLoansQueryParams
+) -> list[dict]:
+    """
+    Returns a paginated list of loans for the authenticated user.
+
+    Args:
+        request (Request): HTTP request object containing the authenticated user.
+        query_params (ListLoansQueryParams): Pagination parameters, including limit and offset.
+
+    Returns:
+        list[dict]: List of loans.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(LIST_LOAN_QUERY, {
+            "client_id": request.user.id,
+            "limit": query_params.limit,
+            "offset": query_params.offset,
+        })
+
+        loans = [
+            {
+                "id": row_data[0],
+                "amount": row_data[1],
+                "interest_rate": row_data[2],
+                "bank": row_data[3],
+                "request_date": row_data[4],
+            }
+            for row_data in cursor
+        ]
+
+    return loans
