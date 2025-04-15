@@ -1,17 +1,12 @@
 from decimal import Decimal
 from typing import Annotated
+from uuid import UUID
 
 from pydantic import BaseModel, Field
-from rest_framework.serializers import (
-    CharField,
-    DateTimeField,
-    DecimalField,
-    IntegerField,
-    IPAddressField,
-    PrimaryKeyRelatedField,
-    Serializer,
-    UUIDField
-)
+from rest_framework.serializers import (CharField, DateTimeField, DecimalField,
+                                        IntegerField, IPAddressField,
+                                        PrimaryKeyRelatedField, Serializer,
+                                        UUIDField)
 
 
 # generics
@@ -80,3 +75,20 @@ class ListLoansResponse(Serializer):
     interest_rate = DecimalField(max_digits=5, decimal_places=2)
     bank = CharField()
     request_date = DateTimeField()
+
+# create_payment_route
+class CreatePaymentRequestSerializer(Serializer):
+    loan = UUIDField()
+    amount = DecimalField(max_digits=10, decimal_places=2)
+
+
+class CreatePaymentRequestModel(BaseModel):
+    loan_id: UUID
+    amount: float
+
+
+class CreatePaymentResponse(Serializer):
+    id = UUIDField()
+    payment_date = DateTimeField()
+    amount = DecimalField(max_digits=10, decimal_places=2)
+    loan_id = UUIDField()

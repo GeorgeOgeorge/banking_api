@@ -9,10 +9,13 @@ from rest_framework.response import Response
 from banking.api.utils.serializers import (CreateLoanRequestModel,
                                            CreateLoanRequestSerializer,
                                            CreateLoanResponseSerializer,
+                                           CreatePaymentRequestModel,
+                                           CreatePaymentRequestSerializer,
+                                           CreatePaymentResponse,
                                            ListLoansQueryParams,
                                            ListLoansQueryParamsSerializer,
                                            ListLoansResponse)
-from banking.api.utils.utils import create_loan, list_loans
+from banking.api.utils.utils import create_loan, create_payment, list_loans
 
 
 @swagger_auto_schema(
@@ -28,7 +31,7 @@ from banking.api.utils.utils import create_loan, list_loans
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def create_loan_request(request: Request) -> Response:
+def create_loan_route(request: Request) -> Response:
     """
     Endpoint for creating a new loan. Requires authentication and
     expects a valid payload with loan details.
@@ -85,3 +88,42 @@ def list_loans_route(request: Request) -> Response:
         return Response({"error": "Error fetching user loans"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(loans, status=status.HTTP_200_OK)
+
+
+@swagger_auto_schema(
+    method='post',
+    request_body=CreatePaymentRequestSerializer,
+    responses={
+        200: CreatePaymentResponse,
+        400: 'Occurs if payload is not in a valid schema.',
+        404: 'Occurs if not able to find selected loan or loan is not owned by user.',
+        500: 'Occurs if an error occurs while paying loan.',
+    },
+    operation_description='Pays user loan',
+    security=[{'Bearer': []}],
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_payment_route(request: Request) -> Response:
+    """
+    Handles the payment creation route.
+
+    Args:
+        request (Request): HTTP request containing payment data.
+
+    Returns:
+        Response: API response with payment data or error message.
+    """
+    try:
+        payment_request = CreatePaymentRequestModel(**request.data)
+    except ValidationError as payload_error:
+        return Response(payload_error.json(), status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        payment = create_payment(request, payment_request)
+    except ValueError as user_doesnt_own_loan:
+        return Response({'error': str(user_doesnt_own_loan)}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as loan_payment_error:
+        return Response({'error': 'Error while paying loan'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response(payment, status=status.HTTP_201_CREATED)

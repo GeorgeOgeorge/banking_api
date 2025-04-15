@@ -1,11 +1,11 @@
 from django.db import connection
 from rest_framework.request import Request
 
-from banking.api.utils.queries import CREATE_LOAN_QUERY, LIST_LOAN_QUERY
-from banking.api.utils.serializers import (
-    CreateLoanRequestModel,
-    ListLoansQueryParams
-)
+from banking.api.utils.queries import (CREATE_LOAN_QUERY, CREATE_PAYMENT_QUERY,
+                                       LIST_LOAN_QUERY, USER_OWNS_LOAN)
+from banking.api.utils.serializers import (CreateLoanRequestModel,
+                                           CreatePaymentRequestModel,
+                                           ListLoansQueryParams)
 
 
 def create_loan(
@@ -85,3 +85,46 @@ def list_loans(
         ]
 
     return loans
+
+
+def create_payment(
+    request: Request,
+    payment_request: CreatePaymentRequestModel
+) -> dict:
+    """
+    Creates a loan payment.
+
+    Args:
+        request (Request): Request containing the authenticated user.
+        payment_request (CreatePaymentRequestModel): Payment input data.
+
+    Raises:
+        ValueError: If the user does not own the loan.
+
+    Returns:
+        dict: Created payment data.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(USER_OWNS_LOAN, {
+            "client_id": request.user.id,
+            "loan_id": payment_request.loan_id,
+        })
+
+        user_owns_loan = cursor.fetchone()
+        if not user_owns_loan:
+            raise ValueError(f"User {request.user.id} is not owner of loan {payment_request.loan_id}")
+
+        cursor.execute(CREATE_PAYMENT_QUERY, {
+            "amount": payment_request.amount,
+            "loan_id": payment_request.loan_id,
+        })
+        row_data = cursor.fetchone()
+
+        payment = {
+            "id": row_data[0],
+            "payment_date": row_data[1],
+            "amount": row_data[2],
+            "loan_id": row_data[3]
+        }
+
+    return payment
