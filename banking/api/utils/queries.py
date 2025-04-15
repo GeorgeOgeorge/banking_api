@@ -27,3 +27,27 @@ LIST_LOAN_QUERY = """
     order by request_date desc
     limit %(limit)s offset %(offset)s;
 """
+
+USER_OWNS_LOAN = """
+    select
+        al.id
+    from
+        api_loan al
+    join auth_user au on
+        al.client_id = au.id
+    where
+        au.id = %(client_id)s
+        and al.id = %(loan_id)s
+    limit 1;
+"""
+
+CREATE_PAYMENT_QUERY = """
+    insert into api_payment (id, payment_date, amount, loan_id)
+    values(
+        gen_random_uuid(),
+        now(),
+        %(amount)s,
+        %(loan_id)s
+    )
+    returning id, payment_date, amount, loan_id;
+"""
