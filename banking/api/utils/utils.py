@@ -23,7 +23,7 @@ def create_loan(
     request: Request,
     loan_request: CreateLoanRequestModel
 ) -> dict:
-    """
+    '''
     Creates a new loan entry in the database.
 
     Args:
@@ -32,7 +32,7 @@ def create_loan(
 
     Returns:
         dict: Dictionary containing the newly created loan's data.
-    """
+    '''
     user_ip_addres = request.META.get(
         'HTTP_X_FORWARDED_FOR',
         request.META.get('REMOTE_ADDR')
@@ -40,24 +40,24 @@ def create_loan(
 
     with connection.cursor() as cursor:
         cursor.execute(CREATE_LOAN_QUERY, {
-            "client_id": request.user.id,
-            "amount": loan_request.amount,
-            "interest_rate": loan_request.interest_rate,
-            "bank": loan_request.bank,
-            "client_name": loan_request.client_name,
-            "ip_address": user_ip_addres
+            'client_id': request.user.id,
+            'amount': loan_request.amount,
+            'interest_rate': loan_request.interest_rate,
+            'bank': loan_request.bank,
+            'client_name': loan_request.client_name,
+            'ip_address': user_ip_addres
         })
         row_data = cursor.fetchone()
 
         loan = {
-            "id": row_data[0],
-            "client_id": row_data[1],
-            "amount": row_data[2],
-            "interest_rate": row_data[3],
-            "bank": row_data[4],
-            "client_name": row_data[5],
-            "ip_address": row_data[6],
-            "request_date": row_data[7],
+            'id': row_data[0],
+            'client_id': row_data[1],
+            'amount': row_data[2],
+            'interest_rate': row_data[3],
+            'bank': row_data[4],
+            'client_name': row_data[5],
+            'ip_address': row_data[6],
+            'request_date': row_data[7],
         }
 
     return loan
@@ -67,7 +67,7 @@ def list_loans(
     request: Request,
     query_params: ListLoansQueryParams
 ) -> list[dict]:
-    """
+    '''
     Returns a paginated list of loans for the authenticated user.
 
     Args:
@@ -76,21 +76,21 @@ def list_loans(
 
     Returns:
         list[dict]: List of loans.
-    """
+    '''
     with connection.cursor() as cursor:
         cursor.execute(LIST_LOAN_QUERY, {
-            "client_id": request.user.id,
-            "limit": query_params.limit,
-            "offset": query_params.offset,
+            'client_id': request.user.id,
+            'limit': query_params.limit,
+            'offset': query_params.offset,
         })
 
         loans = [
             {
-                "id": row_data[0],
-                "amount": row_data[1],
-                "interest_rate": row_data[2],
-                "bank": row_data[3],
-                "request_date": row_data[4],
+                'id': row_data[0],
+                'amount': row_data[1],
+                'interest_rate': row_data[2],
+                'bank': row_data[3],
+                'request_date': row_data[4],
             }
             for row_data in cursor
         ]
@@ -102,7 +102,7 @@ def create_payment(
     request: Request,
     payment_request: CreatePaymentRequestModel
 ) -> dict:
-    """
+    '''
     Creates a loan payment.
 
     Args:
@@ -114,28 +114,28 @@ def create_payment(
 
     Returns:
         dict: Created payment data.
-    """
+    '''
     with connection.cursor() as cursor:
         cursor.execute(USER_OWNS_LOAN, {
-            "client_id": request.user.id,
-            "loan_id": payment_request.loan_id,
+            'client_id': request.user.id,
+            'loan_id': payment_request.loan_id,
         })
 
         user_owns_loan = cursor.fetchone()
         if not user_owns_loan:
-            raise ValueError(f"User {request.user.id} is not owner of loan {payment_request.loan_id}")
+            raise ValueError(f'User {request.user.id} is not owner of loan {payment_request.loan_id}')
 
         cursor.execute(CREATE_PAYMENT_QUERY, {
-            "amount": payment_request.amount,
-            "loan_id": payment_request.loan_id,
+            'amount': payment_request.amount,
+            'loan_id': payment_request.loan_id,
         })
         row_data = cursor.fetchone()
 
         payment = {
-            "id": row_data[0],
-            "payment_date": row_data[1],
-            "amount": row_data[2],
-            "loan_id": row_data[3]
+            'id': row_data[0],
+            'payment_date': row_data[1],
+            'amount': row_data[2],
+            'loan_id': row_data[3]
         }
 
     return payment
@@ -145,7 +145,7 @@ def list_payments(
     request: Request,
     query_params: ListPaymentsQueryParams
 ) -> list[dict]:
-    """
+    '''
     Retrieves a filtered and paginated list of payments for the authenticated user.
 
     Args:
@@ -154,7 +154,7 @@ def list_payments(
 
     Returns:
         list[dict]: List of payments matching the filters.
-    """
+    '''
     query = list_payments_query(query_params)
     filters = query_params.model_dump(exclude_none=True)
 
@@ -180,7 +180,7 @@ def list_payments(
 
 
 def list_loan_balance(request: Request, loan_id: UUID) -> dict:
-    """
+    '''
     Retrieves the remaining balance of a loan for the authenticated user.
 
     Args:
@@ -192,24 +192,24 @@ def list_loan_balance(request: Request, loan_id: UUID) -> dict:
 
     Returns:
         dict: A dictionary containing loan and remaining balance information.
-    """
+    '''
     with connection.cursor() as cursor:
         cursor.execute(LIST_LOAN_BALANCE_QUERY, {
-            "client_id": request.user.id,
-            "loan_id": loan_id,
+            'client_id': request.user.id,
+            'loan_id': loan_id,
         })
         row_data = cursor.fetchone()
         if not row_data:
-            raise ValueError(f"User {request.user.id} is not owner of loan {loan_id}")
+            raise ValueError(f'User {request.user.id} is not owner of loan {loan_id}')
 
         loan_balance = {
-            "id": row_data[0],
-            "bank": row_data[1],
-            "amount": row_data[2],
-            "interest_rate": row_data[3],
-            "request_date": row_data[4],
-            "total_paid": row_data[5],
-            "remaining_debt": row_data[6],
+            'id': row_data[0],
+            'bank': row_data[1],
+            'amount': row_data[2],
+            'interest_rate': row_data[3],
+            'request_date': row_data[4],
+            'total_paid': row_data[5],
+            'remaining_debt': row_data[6],
         }
 
     return loan_balance

@@ -39,13 +39,13 @@ from banking.api.utils.utils import (
         400: 'Occurs if payload is not in a valid schema.',
         500: 'Occurs if an error occurs while requesting loans.',
     },
-    operation_description="Requests a new loan",
+    operation_description='Requests a new loan',
     security=[{'Bearer': []}],
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_loan_route(request: Request) -> Response:
-    """
+    '''
     Endpoint for creating a new loan. Requires authentication and
     expects a valid payload with loan details.
 
@@ -54,7 +54,7 @@ def create_loan_route(request: Request) -> Response:
 
     Returns:
         Response with loan data if successful or error message if failed.
-    """
+    '''
     try:
         loan_request = CreateLoanRequestModel(**request.data)
     except ValidationError as payload_error:
@@ -63,7 +63,7 @@ def create_loan_route(request: Request) -> Response:
     try:
         loan: dict = create_loan(request, loan_request)
     except Exception as request_loan_error:
-        return Response({"error": "Error while requesting loan"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': 'Error while requesting loan'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(loan, status=status.HTTP_201_CREATED)
 
@@ -75,13 +75,13 @@ def create_loan_route(request: Request) -> Response:
         400: 'Occurs if query params are not in a valid schema.',
         500: 'Occurs if an error occurs while requesting loans.',
     },
-    operation_description="Returns user requested loans",
+    operation_description='Returns user requested loans',
     security=[{'Bearer': []}],
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_loans_route(request: Request) -> Response:
-    """
+    '''
     Handles GET requests to retrieve a list of loans associated with the authenticated user.
 
     Args:
@@ -89,7 +89,7 @@ def list_loans_route(request: Request) -> Response:
 
     Returns:
         Response with a list of user's requested loans
-    """
+    '''
     try:
         query_params = ListLoansQueryParams(**request.query_params)
     except ValidationError as query_params_error:
@@ -98,7 +98,7 @@ def list_loans_route(request: Request) -> Response:
     try:
         loans = list_loans(request, query_params)
     except Exception:
-        return Response({"error": "Error fetching user loans"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': 'Error fetching user loans'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(loans, status=status.HTTP_200_OK)
 
@@ -118,7 +118,7 @@ def list_loans_route(request: Request) -> Response:
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_payment_route(request: Request) -> Response:
-    """
+    '''
     Handles the payment creation route.
 
     Args:
@@ -126,7 +126,7 @@ def create_payment_route(request: Request) -> Response:
 
     Returns:
         Response: API response with payment data or error message.
-    """
+    '''
     try:
         payment_request = CreatePaymentRequestModel(**request.data)
     except ValidationError as payload_error:
@@ -191,7 +191,7 @@ def list_payments_route(request: Request) -> Response:
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_loan_balance_route(request: Request, loan_id: UUID) -> Response:
-    """
+    '''
     Handles HTTP request to retrieve the remaining balance of a specific loan.
 
     Args:
@@ -200,7 +200,7 @@ def list_loan_balance_route(request: Request, loan_id: UUID) -> Response:
 
     Returns:
         Response: A JSON response with the remaining loan balance or an error message.
-    """
+    '''
     try:
         loan_balance = list_loan_balance(request, loan_id)
     except ValueError as user_doesnt_own_loan:

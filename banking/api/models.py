@@ -1,13 +1,20 @@
 import uuid
+
 from django.contrib.auth.models import User
 from django.db.models import (
-    CASCADE, CharField, DateTimeField, DecimalField,
-    ForeignKey, GenericIPAddressField, Model, UUIDField
+    CASCADE,
+    CharField,
+    DateTimeField,
+    DecimalField,
+    ForeignKey,
+    GenericIPAddressField,
+    Model,
+    UUIDField
 )
 
 
 class Loan(Model):
-    """
+    '''
     Represents a loan taken by a client (user). Stores information such as
     loan amount, interest rate, client details, and IP address from which
     the loan was requested.
@@ -21,7 +28,7 @@ class Loan(Model):
         request_date (datetime): The timestamp when the loan was requested.
         bank (str): Bank name involved in the loan.
         client_name (str): Name of the client at the moment of request.
-    """
+    '''
 
     id = UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     client = ForeignKey(User, on_delete=CASCADE, related_name='loans')
@@ -34,14 +41,14 @@ class Loan(Model):
 
 
 class Payment(Model):
-    """
+    '''
     Represents a single payment made towards a loan.
 
     Attributes:
         loan (Loan): The loan this payment is associated with.
         payment_date (datetime): The timestamp when the payment was made.
         amount (Decimal): The amount paid.
-    """
+    '''
 
     loan = ForeignKey(Loan, on_delete=CASCADE, related_name='payments')
     payment_date = DateTimeField(auto_now_add=True)

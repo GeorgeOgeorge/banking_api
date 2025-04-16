@@ -3,8 +3,7 @@ from django.urls import include, path
 from drf_yasg.openapi import Contact, Info, License
 from drf_yasg.views import get_schema_view
 from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.views import (TokenObtainPairView,
-                                            TokenRefreshView)
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 schema_view = get_schema_view(
     info=Info(

@@ -1,6 +1,6 @@
 from banking.api.utils.serializers import ListPaymentsQueryParams
 
-CREATE_LOAN_QUERY = """
+CREATE_LOAN_QUERY = '''
     INSERT INTO api_loan (id, client_id, amount, interest_rate, bank, client_name, ip_address, request_date)
     VALUES (
         gen_random_uuid(),
@@ -13,9 +13,9 @@ CREATE_LOAN_QUERY = """
         NOW()
     )
     RETURNING id, client_id, amount, interest_rate, bank, client_name, ip_address, request_date
-"""
+'''
 
-LIST_LOAN_QUERY = """
+LIST_LOAN_QUERY = '''
     select
         al.id,
         al.amount,
@@ -28,9 +28,9 @@ LIST_LOAN_QUERY = """
     where au.id = %(client_id)s
     order by request_date desc
     limit %(limit)s offset %(offset)s;
-"""
+'''
 
-USER_OWNS_LOAN = """
+USER_OWNS_LOAN = '''
     select
         al.id
     from
@@ -41,9 +41,9 @@ USER_OWNS_LOAN = """
         au.id = %(client_id)s
         and al.id = %(loan_id)s
     limit 1;
-"""
+'''
 
-CREATE_PAYMENT_QUERY = """
+CREATE_PAYMENT_QUERY = '''
     insert into api_payment (id, payment_date, amount, loan_id)
     values(
         gen_random_uuid(),
@@ -52,7 +52,7 @@ CREATE_PAYMENT_QUERY = """
         %(loan_id)s
     )
     returning id, payment_date, amount, loan_id;
-"""
+'''
 
 LIST_LOAN_BALANCE_QUERY = '''
     select
@@ -80,7 +80,7 @@ LIST_LOAN_BALANCE_QUERY = '''
 
 
 def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
-    query = """
+    query = '''
         select
             ap.id,
             ap.payment_date,
@@ -92,18 +92,18 @@ def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
             al.id = ap.loan_id
         where
             al.client_id = %(client_id)s
-    """
+    '''
 
     if query_params.payment_id:
-        query += " and ap.id = %(payment_id)s"
+        query += ' and ap.id = %(payment_id)s'
     if query_params.loan_id:
-        query += " and ap.loan_id = %(loan_id)s"
+        query += ' and ap.loan_id = %(loan_id)s'
     if query_params.payment_date:
-        query += " and date(ap.payment_date) = %(payment_date)s"
+        query += ' and date(ap.payment_date) = %(payment_date)s'
 
-    query += """
+    query += '''
         order by ap.payment_date desc
         limit %(limit)s offset %(offset)s;
-    """
+    '''
 
     return query

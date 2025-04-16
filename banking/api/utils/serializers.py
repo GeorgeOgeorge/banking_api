@@ -5,16 +5,23 @@ from typing import Annotated
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
-from rest_framework.serializers import (CharField, DateField, DateTimeField,
-                                        DecimalField, IntegerField,
-                                        IPAddressField, PrimaryKeyRelatedField,
-                                        Serializer, UUIDField)
+from rest_framework.serializers import (
+    CharField,
+    DateField,
+    DateTimeField,
+    DecimalField,
+    IntegerField,
+    IPAddressField,
+    PrimaryKeyRelatedField,
+    Serializer,
+    UUIDField
+)
 
 
 # generics
 class PaginationQueryParams(BaseModel):
-    page: Annotated[int, Field(ge=1, description="Número da página")] = 1
-    limit: Annotated[int, Field(ge=1, description="Quantidade de itens por página")] = 10
+    page: Annotated[int, Field(ge=1, description='Page number')] = 1
+    limit: Annotated[int, Field(ge=1, description='Items per page')] = 10
 
     @property
     def offset(self) -> int:
@@ -22,8 +29,8 @@ class PaginationQueryParams(BaseModel):
 
 
 class PaginationQueryParamsSerializer(Serializer):
-    page = IntegerField(min_value=1, default=1, help_text="Page number")
-    limit = IntegerField(min_value=1, default=10, help_text="Items per page")
+    page = IntegerField(min_value=1, default=1, help_text='Page number')
+    limit = IntegerField(min_value=1, default=10, help_text='Items per page')
 
 
 # create_loan_request
@@ -48,8 +55,8 @@ class CreateLoanRequestModel(BaseModel):
     client_name: Annotated[str, Field(max_length=255, min_length=1)]
 
     model_config = {
-        "str_strip_whitespace": True,
-        "extra": "forbid"
+        'str_strip_whitespace': True,
+        'extra': 'forbid'
     }
 
 class CreateLoanResponseSerializer(Serializer):
@@ -107,7 +114,7 @@ class ListPaymentsQueryParams(PaginationQueryParams):
         valid_format = r'^\d{4}-\d{2}-\d{2}$'
 
         if isinstance(date_str, str) and not re.match(valid_format, date_str):
-            raise ValueError("payment_date must be in format YYYY-MM-DD")
+            raise ValueError('payment_date must be in format YYYY-MM-DD')
 
         return date_str
 
