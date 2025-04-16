@@ -216,7 +216,7 @@ class TestQueries(TestCase):
         assert "and date(ap.payment_date) = %(payment_date)s" in query.strip()
 
 
-class TestCreateLoan(TestCase):
+class TestUtils(TestCase):
     @patch('banking.api.utils.utils.connection.cursor')
     @patch('banking.api.utils.utils.get_user_ip_addres', return_value='192.168.1.1')
     def test_create_loan_success(self, _, mock_cursor):
@@ -281,3 +281,271 @@ class TestCreateLoan(TestCase):
                     client_name= 'ClientName',
                 )
             )
+
+    def test_get_user_ip_addres_with_forwarded_for(self):
+        """Test retrieving IP from HTTP_X_FORWARDED_FOR"""
+        from banking.api.utils.utils import get_user_ip_addres
+
+        request = MagicMock()
+        request.META = {
+            'HTTP_X_FORWARDED_FOR': '192.168.1.100, 10.0.0.1',
+            'REMOTE_ADDR': '127.0.0.1'
+        }
+
+        result = get_user_ip_addres(request)
+        self.assertEqual(result, '192.168.1.100')
+
+    def test_get_user_ip_addres_with_remote_addr_only(self):
+        """Test retrieving IP from REMOTE_ADDR when HTTP_X_FORWARDED_FOR is missing"""
+        from banking.api.utils.utils import get_user_ip_addres
+
+        request = MagicMock()
+        request.META = {
+            'REMOTE_ADDR': '127.0.0.1'
+        }
+
+        result = get_user_ip_addres(request)
+        self.assertEqual(result, '127.0.0.1')
+
+    @patch('banking.api.utils.utils.connection.cursor')
+    def test_list_loans_success(self, mock_cursor):
+        """Test listing loans successfully"""
+        from banking.api.utils.utils import list_loans
+
+        mock_cursor.return_value.__enter__.return_value.__iter__.return_value = iter([
+            (1, 1000.0, 5.0, 'BankName', '2025-04-15 12:00:00'),
+            (2, 1500.0, 4.5, 'AnotherBank', '2025-04-14 10:30:00')
+        ])
+
+        request = MagicMock()
+        request.user.id = 1
+
+        query_params = MagicMock()
+        query_params.limit = 10
+        query_params.offset = 0
+
+        result = list_loans(request, query_params)
+
+        expected_result = [
+            {
+                'id': 1,
+                'amount': 1000.0,
+                'interest_rate': 5.0,
+                'bank': 'BankName',
+                'request_date': '2025-04-15 12:00:00'
+            },
+            {
+                'id': 2,
+                'amount': 1500.0,
+                'interest_rate': 4.5,
+                'bank': 'AnotherBank',
+                'request_date': '2025-04-14 10:30:00'
+            }
+        ]
+
+        self.assertEqual(result, expected_result)
+
+    @patch('banking.api.utils.utils.connection.cursor')
+    def test_list_loans_database_error(self, mock_cursor):
+        """Test listing loans with database error"""
+        from banking.api.utils.utils import list_loans
+
+        mock_cursor.return_value.__enter__.side_effect = Exception('Database error')
+
+        request = MagicMock()
+        request.user.id = 1
+
+        query_params = MagicMock()
+        query_params.limit = 10
+        query_params.offset = 0
+
+        with self.assertRaises(Exception):
+            list_loans(request, query_params)
+
+    @patch('banking.api.utils.utils.connection.cursor')
+    def test_create_payment_success(self, mock_cursor):
+        """Test payment creation success"""
+        from banking.api.utils.utils import create_payment
+
+        mock_cursor_instance = mock_cursor.return_value.__enter__.return_value
+
+        mock_cursor_instance.fetchone.side_effect = [
+            True,
+            (1, '2025-04-15 12:00:00', 500.0, 2)
+        ]
+
+        request = MagicMock()
+        request.user.id = 1
+
+        payment_request = MagicMock()
+        payment_request.loan_id = 2
+        payment_request.amount = 500.0
+
+        result = create_payment(request, payment_request)
+
+        expected_result = {
+            'id': 1,
+            'payment_date': '2025-04-15 12:00:00',
+            'amount': 500.0,
+            'loan_id': 2
+        }
+
+        self.assertEqual(result, expected_result)
+
+    @patch('banking.api.utils.utils.connection.cursor')
+    def test_create_payment_user_not_owner(self, mock_cursor):
+        """Test payment creation with user not owning loan"""
+        from banking.api.utils.utils import create_payment
+
+        mock_cursor_instance = mock_cursor.return_value.__enter__.return_value
+        mock_cursor_instance.fetchone.return_value = None
+
+        request = MagicMock()
+        request.user.id = 1
+
+        payment_request = MagicMock()
+        payment_request.loan_id = 2
+        payment_request.amount = 500.0
+
+        with self.assertRaises(ValueError):
+            create_payment(request, payment_request)
+
+    @patch('banking.api.utils.utils.connection.cursor')
+    def test_create_payment_database_error(self, mock_cursor):
+        """Test payment creation with database error"""
+        from banking.api.utils.utils import create_payment
+
+        mock_cursor.return_value.__enter__.side_effect = Exception('Database error')
+
+        request = MagicMock()
+        request.user.id = 1
+
+        payment_request = MagicMock()
+        payment_request.loan_id = 2
+        payment_request.amount = 500.0
+
+        with self.assertRaises(Exception):
+            create_payment(request, payment_request)
+
+    @patch('banking.api.utils.utils.connection.cursor')
+    @patch('banking.api.utils.utils.list_payments_query')
+    def test_list_payments_success(self, mock_query_fn, mock_cursor):
+        """Test payment listing success"""
+        from banking.api.utils.utils import list_payments
+
+        mock_query_fn.return_value = 'SELECT * FROM payments'
+
+        mock_cursor_instance = mock_cursor.return_value.__enter__.return_value
+        mock_cursor_instance.__iter__.return_value = iter([
+            (1, '2025-04-15 12:00:00', 250.0, 10),
+            (2, '2025-04-16 12:00:00', 300.0, 11)
+        ])
+
+        request = MagicMock()
+        request.user.id = 1
+
+        query_params = MagicMock()
+        query_params.limit = 10
+        query_params.offset = 0
+        query_params.model_dump.return_value = {}
+
+        result = list_payments(request, query_params)
+
+        expected_result = [
+            {
+                'id': 1,
+                'payment_date': '2025-04-15 12:00:00',
+                'amount': 250.0,
+                'loan_id': 10,
+            },
+            {
+                'id': 2,
+                'payment_date': '2025-04-16 12:00:00',
+                'amount': 300.0,
+                'loan_id': 11,
+            }
+        ]
+
+        self.assertEqual(result, expected_result)
+
+    @patch('banking.api.utils.utils.connection.cursor')
+    @patch('banking.api.utils.utils.list_payments_query')
+    def test_list_payments_database_error(self, mock_query_fn, mock_cursor):
+        """Test payment listing with database error"""
+        from banking.api.utils.utils import list_payments
+
+        mock_query_fn.return_value = 'SELECT * FROM payments'
+        mock_cursor.return_value.__enter__.side_effect = Exception('Database error')
+
+        request = MagicMock()
+        request.user.id = 1
+
+        query_params = MagicMock()
+        query_params.limit = 10
+        query_params.offset = 0
+        query_params.model_dump.return_value = {}
+
+        with self.assertRaises(Exception):
+            list_payments(request, query_params)
+
+    @patch('banking.api.utils.utils.connection.cursor')
+    def test_list_loan_balance_success(self, mock_cursor):
+        """Test successful retrieval of loan balance"""
+        from banking.api.utils.utils import list_loan_balance
+
+        mock_cursor_instance = mock_cursor.return_value.__enter__.return_value
+        mock_cursor_instance.fetchone.return_value = (
+            1, 'BankName', 1000.00, 5.0, '2025-04-15 12:00:00', 300.00, 700.00
+        )
+
+        request = MagicMock()
+        request.user.id = 1
+        loan_id = UUID('12345678-1234-5678-1234-567812345678')
+
+        result = list_loan_balance(request, loan_id)
+
+        expected_result = {
+            'id': 1,
+            'bank': 'BankName',
+            'amount': 1000.00,
+            'interest_rate': 5.0,
+            'request_date': '2025-04-15 12:00:00',
+            'total_paid': 300.00,
+            'remaining_debt': 700.00,
+        }
+
+        self.assertEqual(result, expected_result)
+
+    @patch('banking.api.utils.utils.connection.cursor')
+    def test_list_loan_balance_not_owner(self, mock_cursor):
+        """Test loan balance retrieval with unauthorized user"""
+        from banking.api.utils.utils import list_loan_balance
+
+        mock_cursor_instance = mock_cursor.return_value.__enter__.return_value
+        mock_cursor_instance.fetchone.return_value = None
+
+        request = MagicMock()
+        request.user.id = 1
+        loan_id = UUID('12345678-1234-5678-1234-567812345678')
+
+        with self.assertRaises(ValueError) as context:
+            list_loan_balance(request, loan_id)
+
+        self.assertEqual(
+            str(context.exception),
+            f'User {request.user.id} is not owner of loan {loan_id}'
+        )
+
+    @patch('banking.api.utils.utils.connection.cursor')
+    def test_list_loan_balance_database_error(self, mock_cursor):
+        """Test loan balance retrieval with database error"""
+        from banking.api.utils.utils import list_loan_balance
+
+        mock_cursor.return_value.__enter__.side_effect = Exception('Database error')
+
+        request = MagicMock()
+        request.user.id = 1
+        loan_id = UUID('12345678-1234-5678-1234-567812345678')
+
+        with self.assertRaises(Exception):
+            list_loan_balance(request, loan_id)
