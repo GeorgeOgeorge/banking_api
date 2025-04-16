@@ -130,6 +130,6 @@ class LoanBalanceResponse(Serializer):
     bank = CharField()
     amount = DecimalField(max_digits=10, decimal_places=2)
     interest_rate = DecimalField(max_digits=10, decimal_places=2)
-    request_date = DecimalField(max_digits=10, decimal_places=2)
+    request_date = DateField()
     total_paid = DecimalField(max_digits=10, decimal_places=2)
     remaining_debt = DecimalField(max_digits=10, decimal_places=2)
