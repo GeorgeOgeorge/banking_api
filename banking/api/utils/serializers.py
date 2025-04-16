@@ -116,3 +116,13 @@ class ListPaymentsQueryParamsSerializer(PaginationQueryParamsSerializer):
     payment_id = UUIDField(required=False, default=None, allow_null=True)
     loan_id = UUIDField(required=False, default=None, allow_null=True)
     payment_date = DateField(required=False, default=None, allow_null=True, format='%Y-%m-%d')
+
+# list_loan_balance_route
+class LoanBalanceResponse(Serializer):
+    id = UUIDField()
+    bank = CharField()
+    amount = DecimalField(max_digits=10, decimal_places=2)
+    interest_rate = DecimalField(max_digits=10, decimal_places=2)
+    request_date = DecimalField(max_digits=10, decimal_places=2)
+    total_paid = DecimalField(max_digits=10, decimal_places=2)
+    remaining_debt = DecimalField(max_digits=10, decimal_places=2)

@@ -1,13 +1,22 @@
+from uuid import UUID
+
 from django.db import connection
 from rest_framework.request import Request
 
-from banking.api.utils.queries import (CREATE_LOAN_QUERY, CREATE_PAYMENT_QUERY,
-                                       LIST_LOAN_QUERY, USER_OWNS_LOAN,
-                                       list_payments_query)
-from banking.api.utils.serializers import (CreateLoanRequestModel,
-                                           CreatePaymentRequestModel,
-                                           ListLoansQueryParams,
-                                           ListPaymentsQueryParams)
+from banking.api.utils.queries import (
+    CREATE_LOAN_QUERY,
+    CREATE_PAYMENT_QUERY,
+    LIST_LOAN_BALANCE_QUERY,
+    LIST_LOAN_QUERY,
+    USER_OWNS_LOAN,
+    list_payments_query
+)
+from banking.api.utils.serializers import (
+    CreateLoanRequestModel,
+    CreatePaymentRequestModel,
+    ListLoansQueryParams,
+    ListPaymentsQueryParams
+)
 
 
 def create_loan(
@@ -168,3 +177,39 @@ def list_payments(
         ]
 
     return payments
+
+
+def list_loan_balance(request: Request, loan_id: UUID) -> dict:
+    """
+    Retrieves the remaining balance of a loan for the authenticated user.
+
+    Args:
+        request (Request): The HTTP request containing the authenticated user.
+        loan_id (UUID): The ID of the loan to fetch the balance for.
+
+    Raises:
+        ValueError: If the loan does not belong to the authenticated user.
+
+    Returns:
+        dict: A dictionary containing loan and remaining balance information.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(LIST_LOAN_BALANCE_QUERY, {
+            "client_id": request.user.id,
+            "loan_id": loan_id,
+        })
+        row_data = cursor.fetchone()
+        if not row_data:
+            raise ValueError(f"User {request.user.id} is not owner of loan {loan_id}")
+
+        loan_balance = {
+            "id": row_data[0],
+            "bank": row_data[1],
+            "amount": row_data[2],
+            "interest_rate": row_data[3],
+            "request_date": row_data[4],
+            "total_paid": row_data[5],
+            "remaining_debt": row_data[6],
+        }
+
+    return loan_balance

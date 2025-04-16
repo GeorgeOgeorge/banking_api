@@ -54,6 +54,31 @@ CREATE_PAYMENT_QUERY = """
     returning id, payment_date, amount, loan_id;
 """
 
+LIST_LOAN_BALANCE_QUERY = '''
+    select
+        al.id,
+        al.bank,
+        al.amount,
+        al.interest_rate,
+        al.request_date,
+        coalesce(sum(p.amount), 0) total_paid,
+        round(
+            (
+                al.amount +
+                (al.amount * al.interest_rate * greatest(date_part('month', current_date - al.request_date), 0))
+                - coalesce(sum(p.amount), 0)
+            )::numeric,
+            2
+        ) as remaining_debt
+    from api_loan al
+    left join api_payment p on p.loan_id = al.id
+    where al.client_id = %(client_id)s
+        and al.id = %(loan_id)s
+    group by al.id
+    limit 1;
+'''
+
+
 def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
     query = """
         select
