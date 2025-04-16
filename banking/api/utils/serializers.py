@@ -1,12 +1,14 @@
+import re
+from datetime import date
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, Field
-from rest_framework.serializers import (CharField, DateTimeField, DecimalField,
-                                        IntegerField, IPAddressField,
-                                        PrimaryKeyRelatedField, Serializer,
-                                        UUIDField)
+from pydantic import BaseModel, Field, field_validator
+from rest_framework.serializers import (CharField, DateField, DateTimeField,
+                                        DecimalField, IntegerField,
+                                        IPAddressField, PrimaryKeyRelatedField,
+                                        Serializer, UUIDField)
 
 
 # generics
@@ -92,3 +94,25 @@ class CreatePaymentResponse(Serializer):
     payment_date = DateTimeField()
     amount = DecimalField(max_digits=10, decimal_places=2)
     loan_id = UUIDField()
+
+# list_payments_route
+class ListPaymentsQueryParams(PaginationQueryParams):
+    payment_id: UUID | None = None
+    loan_id: UUID | None = None
+    payment_date: date | None = None
+
+    @field_validator('payment_date', mode='before')
+    @classmethod
+    def validate_date_format(cls, date_str: str) -> str | None:
+        valid_format = r'^\d{4}-\d{2}-\d{2}$'
+
+        if isinstance(date_str, str) and not re.match(valid_format, date_str):
+            raise ValueError("payment_date must be in format YYYY-MM-DD")
+
+        return date_str
+
+
+class ListPaymentsQueryParamsSerializer(PaginationQueryParamsSerializer):
+    payment_id = UUIDField(required=False, default=None, allow_null=True)
+    loan_id = UUIDField(required=False, default=None, allow_null=True)
+    payment_date = DateField(required=False, default=None, allow_null=True, format='%Y-%m-%d')

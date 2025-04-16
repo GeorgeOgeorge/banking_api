@@ -14,8 +14,11 @@ from banking.api.utils.serializers import (CreateLoanRequestModel,
                                            CreatePaymentResponse,
                                            ListLoansQueryParams,
                                            ListLoansQueryParamsSerializer,
-                                           ListLoansResponse)
-from banking.api.utils.utils import create_loan, create_payment, list_loans
+                                           ListLoansResponse,
+                                           ListPaymentsQueryParams,
+                                           ListPaymentsQueryParamsSerializer)
+from banking.api.utils.utils import (create_loan, create_payment, list_loans,
+                                     list_payments)
 
 
 @swagger_auto_schema(
@@ -127,3 +130,39 @@ def create_payment_route(request: Request) -> Response:
         return Response({'error': 'Error while paying loan'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(payment, status=status.HTTP_201_CREATED)
+
+
+@swagger_auto_schema(
+    method='get',
+    query_serializer=ListPaymentsQueryParamsSerializer,
+    responses={
+        200: CreatePaymentResponse,
+        400: 'Occurs if query params are not in a valid schema.',
+        500: 'Occurs if an error occurs while fetching payments.',
+    },
+    operation_description='List user payments',
+    security=[{'Bearer': []}],
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_payments_route(request: Request) -> Response:
+    '''
+    Handles the route for listing user payments with optional filters.
+
+    Args:
+        request (Request): HTTP request with query parameters.
+
+    Returns:
+        Response: Paginated list of payments or error response.
+    '''
+    try:
+        query_params = ListPaymentsQueryParams(**request.query_params)
+    except ValidationError as query_params_error:
+        return Response(query_params_error.json(), status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        payments = list_payments(request, query_params)
+    except Exception as list_payments_error:
+        return Response({'error': 'Error fetching user payments'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response(payments, status=status.HTTP_200_OK)

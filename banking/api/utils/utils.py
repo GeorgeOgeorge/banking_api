@@ -2,10 +2,12 @@ from django.db import connection
 from rest_framework.request import Request
 
 from banking.api.utils.queries import (CREATE_LOAN_QUERY, CREATE_PAYMENT_QUERY,
-                                       LIST_LOAN_QUERY, USER_OWNS_LOAN)
+                                       LIST_LOAN_QUERY, USER_OWNS_LOAN,
+                                       list_payments_query)
 from banking.api.utils.serializers import (CreateLoanRequestModel,
                                            CreatePaymentRequestModel,
-                                           ListLoansQueryParams)
+                                           ListLoansQueryParams,
+                                           ListPaymentsQueryParams)
 
 
 def create_loan(
@@ -128,3 +130,41 @@ def create_payment(
         }
 
     return payment
+
+
+def list_payments(
+    request: Request,
+    query_params: ListPaymentsQueryParams
+) -> list[dict]:
+    """
+    Retrieves a filtered and paginated list of payments for the authenticated user.
+
+    Args:
+        request (Request): HTTP request containing the authenticated user.
+        query_params (ListPaymentsQueryParams): Query parameters for filtering and pagination.
+
+    Returns:
+        list[dict]: List of payments matching the filters.
+    """
+    query = list_payments_query(query_params)
+    filters = query_params.model_dump(exclude_none=True)
+
+    with connection.cursor() as cursor:
+        cursor.execute(query, {
+            **filters,
+            'client_id': request.user.id,
+            'limit': query_params.limit,
+            'offset': query_params.offset,
+        })
+
+        payments = [
+            {
+                'id': row_data[0],
+                'payment_date': row_data[1],
+                'amount': row_data[2],
+                'loan_id': row_data[3],
+            }
+            for row_data in cursor
+        ]
+
+    return payments

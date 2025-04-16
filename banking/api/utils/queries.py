@@ -1,3 +1,5 @@
+from banking.api.utils.serializers import ListPaymentsQueryParams
+
 CREATE_LOAN_QUERY = """
     INSERT INTO api_loan (id, client_id, amount, interest_rate, bank, client_name, ip_address, request_date)
     VALUES (
@@ -51,3 +53,32 @@ CREATE_PAYMENT_QUERY = """
     )
     returning id, payment_date, amount, loan_id;
 """
+
+def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
+    query = """
+        select
+            ap.id,
+            ap.payment_date,
+            ap.amount,
+            ap.loan_id
+        from
+            api_payment ap
+        join api_loan al on
+            al.id = ap.loan_id
+        where
+            al.client_id = %(client_id)s
+    """
+
+    if query_params.payment_id:
+        query += " and ap.id = %(payment_id)s"
+    if query_params.loan_id:
+        query += " and ap.loan_id = %(loan_id)s"
+    if query_params.payment_date:
+        query += " and date(ap.payment_date) = %(payment_date)s"
+
+    query += """
+        order by ap.payment_date desc
+        limit %(limit)s offset %(offset)s;
+    """
+
+    return query
