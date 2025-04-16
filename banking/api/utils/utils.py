@@ -19,6 +19,23 @@ from banking.api.utils.serializers import (
 )
 
 
+def get_user_ip_addres(request: Request) -> str:
+    """Retrieve the user's IP address from the request headers.
+
+    Args:
+        request (Request): The HTTP request object.
+
+    Returns:
+        str: The user's IP address.
+    """
+    ip_address = request.META.get(
+        'HTTP_X_FORWARDED_FOR',
+        request.META.get('REMOTE_ADDR')
+    ).split(',')[0]
+
+    return ip_address
+
+
 def create_loan(
     request: Request,
     loan_request: CreateLoanRequestModel
@@ -33,11 +50,6 @@ def create_loan(
     Returns:
         dict: Dictionary containing the newly created loan's data.
     '''
-    user_ip_addres = request.META.get(
-        'HTTP_X_FORWARDED_FOR',
-        request.META.get('REMOTE_ADDR')
-    ).split(',')[0]
-
     with connection.cursor() as cursor:
         cursor.execute(CREATE_LOAN_QUERY, {
             'client_id': request.user.id,
@@ -45,7 +57,7 @@ def create_loan(
             'interest_rate': loan_request.interest_rate,
             'bank': loan_request.bank,
             'client_name': loan_request.client_name,
-            'ip_address': user_ip_addres
+            'ip_address': get_user_ip_addres(request)
         })
         row_data = cursor.fetchone()
 
