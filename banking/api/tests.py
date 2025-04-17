@@ -9,7 +9,11 @@ from rest_framework import status
 from rest_framework.test import APIRequestFactory
 from rest_framework.test import force_authenticate
 
-from banking.api.views import create_loan_route, list_loans_route
+from banking.api.views import (
+    create_loan_route,
+    create_payment_route,
+    list_loans_route
+)
 from banking.api.utils.serializers import (
     CreateLoanRequestModel,
     CreateLoanRequestSerializer,
@@ -644,3 +648,60 @@ class TestViews(TestCase):
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertEqual(response.data, {'error': 'Error fetching user loans'})
         mock_list_loans.assert_called_once()
+
+    @patch('banking.api.views.create_payment', return_value={'foo': 'foo'})
+    def test_create_payment_route_success(self, mock_create_payment):
+        """Test successful loan payment"""
+        request = self.factory.post('/payment', {
+            'loan_id': uuid4(),
+            'amount': 100.0,
+        }, format='json')
+        force_authenticate(request, user=self.user)
+
+        response = create_payment_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data, {'foo': 'foo'})
+        mock_create_payment.assert_called_once()
+
+    def test_create_payment_route_invalid_payload(self):
+        """Test loan payment with invalid payload"""
+        request = self.factory.post('/payment', {
+            'wrong_field': 123
+        }, format='json')
+        force_authenticate(request, user=self.user)
+
+        response = create_payment_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Field required', response.data)
+
+    @patch('banking.api.views.create_payment', side_effect=ValueError('Loan not owned by user'))
+    def test_create_payment_route_loan_not_owned(self, mock_create_payment):
+        """Test payment when loan is not owned by user"""
+        request = self.factory.post('/payment', {
+            'loan_id': uuid4(),
+            'amount': 100.0,
+        }, format='json')
+        force_authenticate(request, user=self.user)
+
+        response = create_payment_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data, {'error': 'Loan not owned by user'})
+        mock_create_payment.assert_called_once()
+
+    @patch('banking.api.views.create_payment', side_effect=Exception('DB down'))
+    def test_create_payment_route_internal_error(self, mock_create_payment):
+        """Test internal server error during payment creation"""
+        request = self.factory.post('/payment', {
+            'loan_id': uuid4(),
+            'amount': 100.0,
+        }, format='json')
+        force_authenticate(request, user=self.user)
+
+        response = create_payment_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.data, {'error': 'Error while paying loan'})
+        mock_create_payment.assert_called_once()
