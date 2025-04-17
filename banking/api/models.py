@@ -13,6 +13,27 @@ from django.db.models import (
 )
 
 
+class Bank(Model):
+    '''
+    Represents a financial institution that guarantees or offers loans.
+
+    Attributes:
+        id (UUID): Unique identifier for the bank.
+        name (str): Name of the bank.
+        bic (str): Bank Identifier Code (international code).
+        country (str): Country where the bank operates.
+        interest_policy (str): Description or code for the bank's interest policy.
+        max_loan_amount (Decimal): Maximum loan amount this bank can offer.
+    '''
+
+    id = UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = CharField(max_length=100, unique=True)
+    bic = CharField(max_length=20, blank=True, null=True)
+    country = CharField(max_length=50)
+    interest_policy = CharField(max_length=100, blank=True)
+    max_loan_amount = DecimalField(max_digits=12, decimal_places=2, default=0)
+
+
 class Loan(Model):
     '''
     Represents a loan taken by a client (user). Stores information such as
@@ -26,7 +47,7 @@ class Loan(Model):
         interest_rate (Decimal): The interest rate per month (%).
         ip_address (str): The IP address from which the request originated.
         request_date (datetime): The timestamp when the loan was requested.
-        bank (str): Bank name involved in the loan.
+        bank (Bank): Bank entity responsible for the loan.
         client_name (str): Name of the client at the moment of request.
     '''
 
@@ -36,7 +57,7 @@ class Loan(Model):
     interest_rate = DecimalField(max_digits=5, decimal_places=2)
     ip_address = GenericIPAddressField()
     request_date = DateTimeField(auto_now_add=True)
-    bank = CharField(max_length=100)
+    bank = ForeignKey(Bank, on_delete=CASCADE, related_name='loans')
     client_name = CharField(max_length=100)
 
 
