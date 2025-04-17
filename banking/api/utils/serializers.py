@@ -76,7 +76,11 @@ class ListLoansQueryParamsSerializer(PaginationQueryParamsSerializer):
     ...
 
 class ListLoansQueryParams(PaginationQueryParams):
-    ...
+
+    model_config = {
+        'str_strip_whitespace': True,
+        'extra': 'forbid'
+    }
 
 class ListLoansResponse(Serializer):
     id = UUIDField()
