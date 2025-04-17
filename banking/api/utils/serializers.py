@@ -117,6 +117,11 @@ class ListPaymentsQueryParams(PaginationQueryParams):
     loan_id: UUID | None = None
     payment_date: date | None = None
 
+    model_config = {
+        'str_strip_whitespace': True,
+        'extra': 'forbid'
+    }
+
     @field_validator('payment_date', mode='before')
     @classmethod
     def validate_date_format(cls, date_str: str) -> str | None:
