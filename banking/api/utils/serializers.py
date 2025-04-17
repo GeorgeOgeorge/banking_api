@@ -99,6 +99,11 @@ class CreatePaymentRequestModel(BaseModel):
     loan_id: UUID
     amount: float
 
+    model_config = {
+        'str_strip_whitespace': True,
+        'extra': 'forbid'
+    }
+
 
 class CreatePaymentResponse(Serializer):
     id = UUIDField()
