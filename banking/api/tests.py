@@ -12,6 +12,7 @@ from rest_framework.test import force_authenticate
 from banking.api.views import (
     create_loan_route,
     create_payment_route,
+    list_loan_balance_route,
     list_loans_route,
     list_payments_route
 )
@@ -568,6 +569,7 @@ class TestViews(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='foo', password='test123')
         self.factory = APIRequestFactory()
+        self.loan_id = uuid4()
 
     @patch('banking.api.views.create_loan', return_value={'foo': 'foo'})
     def test_create_loan_route_success(self, mock_create_loan):
@@ -653,7 +655,7 @@ class TestViews(TestCase):
     def test_create_payment_route_success(self, mock_create_payment):
         """Test successful loan payment"""
         request = self.factory.post('/payment', {
-            'loan_id': uuid4(),
+            'loan_id': self.loan_id,
             'amount': 100.0,
         }, format='json')
         force_authenticate(request, user=self.user)
@@ -680,7 +682,7 @@ class TestViews(TestCase):
     def test_create_payment_route_loan_not_owned(self, mock_create_payment):
         """Test payment when loan is not owned by user"""
         request = self.factory.post('/payment', {
-            'loan_id': uuid4(),
+            'loan_id': self.loan_id,
             'amount': 100.0,
         }, format='json')
         force_authenticate(request, user=self.user)
@@ -695,7 +697,7 @@ class TestViews(TestCase):
     def test_create_payment_route_internal_error(self, mock_create_payment):
         """Test internal server error during payment creation"""
         request = self.factory.post('/payment', {
-            'loan_id': uuid4(),
+            'loan_id': self.loan_id,
             'amount': 100.0,
         }, format='json')
         force_authenticate(request, user=self.user)
@@ -739,3 +741,39 @@ class TestViews(TestCase):
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertEqual(response.data, {'error': 'Error fetching user payments'})
         mock_list_payments.assert_called_once()
+
+    @patch('banking.api.views.list_loan_balance', return_value={'foo': 'foo'})
+    def test_list_loan_balance_success(self, mock_list_loan_balance):
+        """Test successful loan balance retrieval"""
+        request = self.factory.get(f'/loans/{self.loan_id}/balance')
+        force_authenticate(request, user=self.user)
+
+        response = list_loan_balance_route(request, loan_id=self.loan_id)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {'foo': 'foo'})
+        mock_list_loan_balance.assert_called_once()
+
+    @patch('banking.api.views.list_loan_balance', side_effect=ValueError('Loan not found or not owned'))
+    def test_list_loan_balance_not_found(self, mock_list_loan_balance):
+        """Test loan not owned by user returns 404"""
+        request = self.factory.get(f'/loans/{self.loan_id}/balance')
+        force_authenticate(request, user=self.user)
+
+        response = list_loan_balance_route(request, loan_id=self.loan_id)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data, {'error': 'Loan not found or not owned'})
+        mock_list_loan_balance.assert_called_once()
+
+    @patch('banking.api.views.list_loan_balance', side_effect=Exception('Unexpected error'))
+    def test_list_loan_balance_internal_error(self, mock_list_loan_balance):
+        """Test internal server error during loan balance fetch"""
+        request = self.factory.get(f'/loans/{self.loan_id}/balance')
+        force_authenticate(request, user=self.user)
+
+        response = list_loan_balance_route(request, loan_id=self.loan_id)
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.data, {'error': 'Error while paying loan'})
+        mock_list_loan_balance.assert_called_once()
