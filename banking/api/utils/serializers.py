@@ -44,14 +44,14 @@ class PaymentResponseSerializer(Serializer):
 class CreateLoanRequestSerializer(Serializer):
     amount = DecimalField(max_digits=10, decimal_places=2)
     interest_rate = DecimalField(max_digits=5, decimal_places=2)
-    bank = CharField(max_length=255)
+    bank_id = UUIDField()
     client_name = CharField(max_length=255)
 
 
 class CreateLoanRequestModel(BaseModel):
     amount: Annotated[Decimal, Field(gt=0, max_digits=10, decimal_places=2)]
     interest_rate: Annotated[Decimal, Field(ge=0, le=100, max_digits=5, decimal_places=2)]
-    bank: Annotated[str, Field(max_length=255, min_length=1)]
+    bank_id: UUID
     client_name: Annotated[str, Field(max_length=255, min_length=1)]
 
     model_config = {
@@ -66,7 +66,7 @@ class CreateLoanResponseSerializer(Serializer):
     interest_rate = DecimalField(max_digits=5, decimal_places=2)
     ip_address = IPAddressField()
     request_date = DateTimeField()
-    bank = CharField()
+    bank_id = UUIDField()
     client_name = CharField()
     payments = PaymentResponseSerializer(many=True)
     remaining_balance = DecimalField(max_digits=10, decimal_places=2)
@@ -86,7 +86,7 @@ class ListLoansResponse(Serializer):
     id = UUIDField()
     amount = DecimalField(max_digits=10, decimal_places=2)
     interest_rate = DecimalField(max_digits=5, decimal_places=2)
-    bank = CharField()
+    bank_name = CharField()
     request_date = DateTimeField()
 
 # create_payment_route
@@ -141,7 +141,7 @@ class ListPaymentsQueryParamsSerializer(PaginationQueryParamsSerializer):
 # list_loan_balance_route
 class LoanBalanceResponse(Serializer):
     id = UUIDField()
-    bank = CharField()
+    bank_name = CharField()
     amount = DecimalField(max_digits=10, decimal_places=2)
     interest_rate = DecimalField(max_digits=10, decimal_places=2)
     request_date = DateField()

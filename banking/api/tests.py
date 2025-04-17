@@ -33,13 +33,15 @@ User = get_user_model()
 
 
 class SerializerTests(TestCase):
+    def setUp(self):
+        self.bank_id = uuid4()
 
     def test_create_loan_request_model_valid(self):
         """Test CreateLoanRequestModel validation and serialization"""
         loan_data = {
             "amount": Decimal("10000.00"),
             "interest_rate": Decimal("5.00"),
-            "bank": "Banco XYZ",
+            "bank_id": self.bank_id,
             "client_name": "John Doe"
         }
 
@@ -47,7 +49,7 @@ class SerializerTests(TestCase):
 
         self.assertEqual(loan.amount, Decimal("10000.00"))
         self.assertEqual(loan.interest_rate, Decimal("5.00"))
-        self.assertEqual(loan.bank, "Banco XYZ")
+        self.assertEqual(loan.bank_id, self.bank_id)
         self.assertEqual(loan.client_name, "John Doe")
 
     def test_create_payment_request_model_valid(self):
@@ -67,7 +69,7 @@ class SerializerTests(TestCase):
         invalid_data = {
             "amount": Decimal("-100.00"),
             "interest_rate": Decimal("5.00"),
-            "bank": "Banco XYZ",
+            "bank_id": "Banco XYZ",
             "client_name": "John Doe"
         }
 
@@ -101,7 +103,7 @@ class SerializerTests(TestCase):
         """Test LoanBalanceResponse serializer"""
         loan_balance_data = {
             "id": uuid4(),
-            "bank": "Banco XYZ",
+            "bank_name": "Banco XYZ",
             "amount": 10000.00,
             "interest_rate": 5.00,
             "request_date": "2025-04-16",
@@ -147,7 +149,7 @@ class SerializerTests(TestCase):
         loan_data = {
             "amount": Decimal("10000.00"),
             "interest_rate": Decimal("5.00"),
-            "bank": "Banco XYZ",
+            "bank_id": self.bank_id,
             "client_name": "John Doe"
         }
 
@@ -175,7 +177,7 @@ class SerializerTests(TestCase):
             "interest_rate": Decimal("5.00"),
             "ip_address": "192.168.1.1",
             "request_date": "2025-04-16",
-            "bank": "Banco XYZ",
+            "bank_id": self.bank_id,
             "client_name": "John Doe",
             "payments": [],
             "remaining_balance": Decimal("8000.00")
@@ -231,6 +233,9 @@ class TestQueries(TestCase):
 
 
 class TestUtils(TestCase):
+    def setUp(self):
+        self.bank_id = uuid4()
+
     @patch('banking.api.utils.utils.connection.cursor')
     @patch('banking.api.utils.utils.get_user_ip_addres', return_value='192.168.1.1')
     def test_create_loan_success(self, _, mock_cursor):
@@ -242,7 +247,7 @@ class TestUtils(TestCase):
             1,
             1000.00,
             5.0,
-            'BankName',
+            self.bank_id,
             'ClientName',
             '192.168.1.1',
             '2025-04-15 12:00:00'
@@ -256,7 +261,7 @@ class TestUtils(TestCase):
             MagicMock(
                 amount=1000.00,
                 interest_rate=5.0,
-                bank='BankName',
+                bank=self.bank_id,
                 client_name= 'ClientName',
             )
         )
@@ -266,7 +271,7 @@ class TestUtils(TestCase):
             'client_id': 1,
             'amount': 1000.00,
             'interest_rate': 5.0,
-            'bank': 'BankName',
+            'bank_id': self.bank_id,
             'client_name': 'ClientName',
             'ip_address': '192.168.1.1',
             'request_date': '2025-04-15 12:00:00'
@@ -291,7 +296,7 @@ class TestUtils(TestCase):
                 MagicMock(
                     amount=1000.00,
                     interest_rate=5.0,
-                    bank='BankName',
+                    bank=self.bank_id,
                     client_name= 'ClientName',
                 )
             )
@@ -345,14 +350,14 @@ class TestUtils(TestCase):
                 'id': 1,
                 'amount': 1000.0,
                 'interest_rate': 5.0,
-                'bank': 'BankName',
+                'bank_name': 'BankName',
                 'request_date': '2025-04-15 12:00:00'
             },
             {
                 'id': 2,
                 'amount': 1500.0,
                 'interest_rate': 4.5,
-                'bank': 'AnotherBank',
+                'bank_name': 'AnotherBank',
                 'request_date': '2025-04-14 10:30:00'
             }
         ]
@@ -520,7 +525,7 @@ class TestUtils(TestCase):
 
         expected_result = {
             'id': 1,
-            'bank': 'BankName',
+            'bank_name': 'BankName',
             'amount': 1000.00,
             'interest_rate': 5.0,
             'request_date': '2025-04-15 12:00:00',
@@ -570,13 +575,14 @@ class TestViews(TestCase):
         self.user = User.objects.create_user(username='foo', password='test123')
         self.factory = APIRequestFactory()
         self.loan_id = uuid4()
+        self.bank_id = uuid4()
 
     @patch('banking.api.views.create_loan', return_value={'foo': 'foo'})
     def test_create_loan_route_success(self, mock_create_loan):
         """Test successful loan creation"""
         request = self.factory.post('/loan', {
             'amount': 1000.0,
-            'bank': 'BankName',
+            'bank_id': self.bank_id,
             'interest_rate': 5.0,
             'client_name': 'foo'
         }, format='json')
@@ -605,7 +611,7 @@ class TestViews(TestCase):
         """Test internal server error during loan creation"""
         request = self.factory.post('/loan', {
             'amount': 1000.0,
-            'bank': 'BankName',
+            'bank_id': self.bank_id,
             'interest_rate': 5.0,
             'client_name': 'foo',
         }, format='json')

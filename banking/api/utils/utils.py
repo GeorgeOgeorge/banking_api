@@ -55,7 +55,7 @@ def create_loan(
             'client_id': request.user.id,
             'amount': loan_request.amount,
             'interest_rate': loan_request.interest_rate,
-            'bank': loan_request.bank,
+            'bank_id': loan_request.bank_id,
             'client_name': loan_request.client_name,
             'ip_address': get_user_ip_addres(request)
         })
@@ -66,7 +66,7 @@ def create_loan(
             'client_id': row_data[1],
             'amount': row_data[2],
             'interest_rate': row_data[3],
-            'bank': row_data[4],
+            'bank_id': row_data[4],
             'client_name': row_data[5],
             'ip_address': row_data[6],
             'request_date': row_data[7],
@@ -101,7 +101,7 @@ def list_loans(
                 'id': row_data[0],
                 'amount': row_data[1],
                 'interest_rate': row_data[2],
-                'bank': row_data[3],
+                'bank_name': row_data[3],
                 'request_date': row_data[4],
             }
             for row_data in cursor
@@ -216,7 +216,7 @@ def list_loan_balance(request: Request, loan_id: UUID) -> dict:
 
         loan_balance = {
             'id': row_data[0],
-            'bank': row_data[1],
+            'bank_name': row_data[1],
             'amount': row_data[2],
             'interest_rate': row_data[3],
             'request_date': row_data[4],

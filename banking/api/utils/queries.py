@@ -1,18 +1,18 @@
 from banking.api.utils.serializers import ListPaymentsQueryParams
 
 CREATE_LOAN_QUERY = '''
-    INSERT INTO api_loan (id, client_id, amount, interest_rate, bank, client_name, ip_address, request_date)
+    INSERT INTO api_loan (id, client_id, amount, interest_rate, bank_id, client_name, ip_address, request_date)
     VALUES (
         gen_random_uuid(),
         %(client_id)s,
         %(amount)s,
         %(interest_rate)s,
-        %(bank)s,
+        %(bank_id)s,
         %(client_name)s,
         %(ip_address)s,
         NOW()
     )
-    RETURNING id, client_id, amount, interest_rate, bank, client_name, ip_address, request_date
+    RETURNING id, client_id, amount, interest_rate, bank_id, client_name, ip_address, request_date
 '''
 
 LIST_LOAN_QUERY = '''
@@ -21,10 +21,11 @@ LIST_LOAN_QUERY = '''
         al.amount,
         al.interest_rate,
         al.request_date,
-        al.bank
+        ab.name as bank_name
     from
         api_loan al
     join auth_user au on al.client_id = au.id
+    join api_bank ab on al.bank_id = ab.id
     where au.id = %(client_id)s
     order by request_date desc
     limit %(limit)s offset %(offset)s;
@@ -57,7 +58,7 @@ CREATE_PAYMENT_QUERY = '''
 LIST_LOAN_BALANCE_QUERY = '''
     select
         al.id,
-        al.bank,
+        ab.name as bank_name,
         al.amount,
         al.interest_rate,
         al.request_date,
@@ -71,10 +72,11 @@ LIST_LOAN_BALANCE_QUERY = '''
             2
         ) as remaining_debt
     from api_loan al
+    join api_bank ab on al.bank_id = ab.id
     left join api_payment p on p.loan_id = al.id
     where al.client_id = %(client_id)s
         and al.id = %(loan_id)s
-    group by al.id
+    group by al.id, ab.name
     limit 1;
 '''
 
