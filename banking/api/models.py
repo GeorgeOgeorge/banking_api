@@ -15,23 +15,43 @@ from django.db.models import (
 
 class Bank(Model):
     '''
-    Represents a financial institution that guarantees or offers loans.
+    Represents the financial institution responsible for issuing loans.
 
     Attributes:
         id (UUID): Unique identifier for the bank.
-        name (str): Name of the bank.
-        bic (str): Bank Identifier Code (international code).
+        name (str): The official name of the bank.
+        bic (str): Bank Identifier Code (SWIFT), used for international transfers.
         country (str): Country where the bank operates.
-        interest_policy (str): Description or code for the bank's interest policy.
-        max_loan_amount (Decimal): Maximum loan amount this bank can offer.
+        interest_policy (str): Description of the bank's policy for applying interest rates.
+        max_loan_amount (Decimal): The maximum loan amount the bank is willing to offer.
+        created_at (datetime): Timestamp of when the bank record was created.
+        updated_at (datetime): Timestamp of the last update to the bank record.
+        created_by (User): User who created the bank record.
+        updated_by (User): User who last updated the bank record.
     '''
 
-    id = UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)
     name = CharField(max_length=100, unique=True)
-    bic = CharField(max_length=20, blank=True, null=True)
+    bic = CharField(blank=True, max_length=20, null=True)
     country = CharField(max_length=50)
-    interest_policy = CharField(max_length=100, blank=True)
-    max_loan_amount = DecimalField(max_digits=12, decimal_places=2, default=0)
+    interest_policy = CharField(blank=True, max_length=100)
+    max_loan_amount = DecimalField(decimal_places=2, default=0, max_digits=12)
+    created_at = DateTimeField(auto_now_add=True)
+    updated_at = DateTimeField(auto_now=True)
+    created_by = ForeignKey(
+        User,
+        on_delete=CASCADE,
+        related_name='created_banks',
+        null=True,
+        blank=True
+    )
+    updated_by = ForeignKey(
+        User,
+        on_delete=CASCADE,
+        related_name='updated_banks',
+        null=True,
+        blank=True
+    )
 
 
 class Loan(Model):
