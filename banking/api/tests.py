@@ -12,7 +12,8 @@ from rest_framework.test import force_authenticate
 from banking.api.views import (
     create_loan_route,
     create_payment_route,
-    list_loans_route
+    list_loans_route,
+    list_payments_route
 )
 from banking.api.utils.serializers import (
     CreateLoanRequestModel,
@@ -219,7 +220,6 @@ class TestQueries(TestCase):
             payment_id=uuid4(),
             loan_id=uuid4(),
             payment_date=date(2025, 4, 16),
-            client_id=uuid4(),
             limit=10,
             page=1
         ))
@@ -705,3 +705,37 @@ class TestViews(TestCase):
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertEqual(response.data, {'error': 'Error while paying loan'})
         mock_create_payment.assert_called_once()
+
+    @patch('banking.api.views.list_payments', return_value=[{'foo': 'foo'}])
+    def test_list_payments_route_success(self, mock_list_payments):
+        """Test successful listing of user payments"""
+        request = self.factory.get('/payments')
+        force_authenticate(request, user=self.user)
+
+        response = list_payments_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [{'foo': 'foo'}])
+        mock_list_payments.assert_called_once()
+
+    def test_list_payments_route_invalid_query_params(self):
+        """Test listing payments with invalid query params"""
+        request = self.factory.get('/payments?foo=1')
+        force_authenticate(request, user=self.user)
+
+        response = list_payments_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('extra_forbidden', response.data)
+
+    @patch('banking.api.views.list_payments', side_effect=Exception('DB error'))
+    def test_list_payments_route_internal_error(self, mock_list_payments):
+        """Test internal error during listing of payments"""
+        request = self.factory.get('/payments')
+        force_authenticate(request, user=self.user)
+
+        response = list_payments_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.data, {'error': 'Error fetching user payments'})
+        mock_list_payments.assert_called_once()
