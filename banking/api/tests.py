@@ -1,21 +1,31 @@
 from datetime import date
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
-from uuid import uuid4, UUID
+from uuid import UUID, uuid4
 
 from django.test import TestCase
+from django.contrib.auth import get_user_model
+from pydantic import ValidationError
+from rest_framework import status
+from rest_framework.test import APIRequestFactory
+from rest_framework.test import force_authenticate
+
+from banking.api.views import create_loan_route
 from banking.api.utils.serializers import (
     CreateLoanRequestModel,
-    CreatePaymentRequestModel,
-    ListLoansQueryParams,
-    LoanBalanceResponse,
-    ListPaymentsQueryParams,
     CreateLoanRequestSerializer,
-    CreatePaymentRequestSerializer,
     CreateLoanResponseSerializer,
+    CreatePaymentRequestModel,
+    CreatePaymentRequestSerializer,
+    CreatePaymentResponse,
+    ListLoansQueryParams,
+    ListPaymentsQueryParams,
+    LoanBalanceResponse,
     PaymentResponseSerializer,
-    CreatePaymentResponse
 )
+
+User = get_user_model()
+
 
 class SerializerTests(TestCase):
 
@@ -549,3 +559,55 @@ class TestUtils(TestCase):
 
         with self.assertRaises(Exception):
             list_loan_balance(request, loan_id)
+
+
+class TestViews(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='foo', password='test123')
+        self.factory = APIRequestFactory()
+
+    @patch('banking.api.views.create_loan', return_value={'foo': 'foo'})
+    def test_create_loan_route_success(self, mock_create_loan):
+        """Test successful loan creation"""
+        request = self.factory.post('/loan', {
+            'amount': 1000.0,
+            'bank': 'BankName',
+            'interest_rate': 5.0,
+            'client_name': 'foo'
+        }, format='json')
+        force_authenticate(request, user=self.user)
+
+        response = create_loan_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data, {'foo': 'foo'})
+        mock_create_loan.assert_called_once()
+
+    def test_create_loan_route_invalid_payload(self):
+        """Test loan creation with invalid payload"""
+        request = self.factory.post('/loan', {
+            'invalid_field': 'value'
+        }, format='json')
+        force_authenticate(request, user=self.user)
+
+        response = create_loan_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Field required', response.data)
+
+    @patch('banking.api.views.create_loan', side_effect=Exception('unexpected error'))
+    def test_create_loan_route_internal_error(self, mock_create_loan):
+        """Test internal server error during loan creation"""
+        request = self.factory.post('/loan', {
+            'amount': 1000.0,
+            'bank': 'BankName',
+            'interest_rate': 5.0,
+            'client_name': 'foo',
+        }, format='json')
+        force_authenticate(request, user=self.user)
+
+        response = create_loan_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.data, {'error': 'Error while requesting loan'})
+        mock_create_loan.assert_called_once()
