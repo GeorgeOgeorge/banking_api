@@ -5,12 +5,11 @@ from uuid import UUID, uuid4
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from pydantic import ValidationError
 from rest_framework import status
 from rest_framework.test import APIRequestFactory
 from rest_framework.test import force_authenticate
 
-from banking.api.views import create_loan_route
+from banking.api.views import create_loan_route, list_loans_route
 from banking.api.utils.serializers import (
     CreateLoanRequestModel,
     CreateLoanRequestSerializer,
@@ -611,3 +610,37 @@ class TestViews(TestCase):
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertEqual(response.data, {'error': 'Error while requesting loan'})
         mock_create_loan.assert_called_once()
+
+    @patch('banking.api.views.list_loans', return_value=[{'foo': 'foo'}])
+    def test_list_loans_route_success(self, mock_list_loans):
+        """Test successful loan listing"""
+        request = self.factory.get('/loans')
+        force_authenticate(request, user=self.user)
+
+        response = list_loans_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [{'foo': 'foo'}])
+        mock_list_loans.assert_called_once()
+
+    def test_list_loans_route_invalid_query_params(self):
+        """Test loan listing with invalid query params"""
+        request = self.factory.get('/loans?invalid_param=bad')
+        force_authenticate(request, user=self.user)
+
+        response = list_loans_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('extra_forbidden', response.data)
+
+    @patch('banking.api.views.list_loans', side_effect=Exception('unexpected error'))
+    def test_list_loans_route_internal_error(self, mock_list_loans):
+        """Test internal server error during loan listing"""
+        request = self.factory.get('/loans')
+        force_authenticate(request, user=self.user)
+
+        response = list_loans_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.data, {'error': 'Error fetching user loans'})
+        mock_list_loans.assert_called_once()
