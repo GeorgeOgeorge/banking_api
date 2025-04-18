@@ -1,3 +1,4 @@
+from typing import Generator
 import uuid
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -91,7 +92,8 @@ class Loan(Model):
             Index(fields=['client', 'bank']),
         ]
 
-    def _calculate_monthly_installment(self) -> Decimal:
+    @property
+    def _installment_value(self) -> Decimal:
         '''
         Calculates the monthly installment value for a loan based on the principal amount,
         interest rate, and number of installments using compound interest.
@@ -125,30 +127,21 @@ class Loan(Model):
 
         return installment_value
 
-    def create_loan_installments(self) -> None:
+    def generate_loan_installments(self) -> Generator['LoanInstallment', None, None]:
         '''
-        Creates loan installments based on the loan details and the start date.
+        Lazily generates and yields loan installments based on the loan details.
 
-        Args:
-            loan (Loan): The loan object to which the installments belong.
-            loan_request (CreateLoanModel): The loan request data.
-            start_date (datetime): The date when the first installment is due.
+        Yields:
+            LoanInstallment: A created loan installment instance.
         '''
-        installment_value = self._calculate_monthly_installment(
-            self.amount,
-            self.interest_rate,
-            self.installments_qt
-        )
-
         for i in range(self.installments_qt):
-            LoanInstallment.objects.create(
+            installment = LoanInstallment.objects.create(
                 id=uuid.uuid4(),
                 loan=self,
-                due_date=self.request_date + relativedelta(months=i+1),
-                amount=installment_value
+                due_date=self.request_date + relativedelta(months=i + 1),
+                amount=self._installment_value
             )
-
-        return None
+            yield installment
 
 
 class LoanInstallment(Model):

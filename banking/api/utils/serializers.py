@@ -11,8 +11,6 @@ from rest_framework.serializers import (
     DateTimeField,
     DecimalField,
     IntegerField,
-    IPAddressField,
-    PrimaryKeyRelatedField,
     Serializer,
     UUIDField,
 )
@@ -34,18 +32,16 @@ class PaginationQueryParamsSerializer(Serializer):
 
 
 # create_loan_request
-class PaymentResponseSerializer(Serializer):
+class LoanInstallMent(Serializer):
     id = UUIDField()
-    loan = UUIDField()
-    payment_date = DateTimeField()
-    amount = DecimalField(max_digits=10, decimal_places=2)
+    due_date = DateTimeField()
+    amount = DecimalField(max_digits=12, decimal_places=2)
 
-
-class CreateLoanRequestSerializer(Serializer):
+class CreateLoanRequest(Serializer):
     amount = DecimalField(max_digits=10, decimal_places=2)
     interest_rate = DecimalField(max_digits=5, decimal_places=2)
+    installments_qt = IntegerField(min_value=1)
     bank_id = UUIDField()
-    client_name = CharField(max_length=255)
 
 
 class CreateLoanModel(BaseModel):
@@ -59,17 +55,13 @@ class CreateLoanModel(BaseModel):
         'extra': 'forbid'
     }
 
-class CreateLoanResponseSerializer(Serializer):
+class CreateLoanResponse(Serializer):
     id = UUIDField()
-    client = PrimaryKeyRelatedField(read_only=True)
     amount = DecimalField(max_digits=10, decimal_places=2)
     interest_rate = DecimalField(max_digits=5, decimal_places=2)
-    ip_address = IPAddressField()
     request_date = DateTimeField()
-    bank_id = UUIDField()
-    client_name = CharField()
-    payments = PaymentResponseSerializer(many=True)
-    remaining_balance = DecimalField(max_digits=10, decimal_places=2)
+    bank_name = CharField()
+    loan_installments = LoanInstallMent(many=True)
 
 # list_loans_route
 class ListLoansQueryParamsSerializer(PaginationQueryParamsSerializer):

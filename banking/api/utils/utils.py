@@ -16,7 +16,7 @@ from banking.api.utils.serializers import (
 )
 
 
-def get_user_ip_addres(request: Request) -> str:
+def get_user_ip_address(request: Request) -> str:
     '''Retrieve the user's IP address from the request headers.
 
     Args:
@@ -64,25 +64,33 @@ def create_loan(request: Request, loan_request: CreateLoanModel) -> dict:
         amount=loan_request.amount,
         interest_rate=loan_request.interest_rate,
         installments_qt=loan_request.installments_qt,
-        ip_address=get_user_ip_addres(request),
+        ip_address=get_user_ip_address(request),
         request_date=datetime.now(tz=timezone.utc),
     )
 
     try:
-        loan.create_loan_installments()
+        loan_installments = [
+            {
+                "id": loan_installment.id,
+                "due_date": loan_installment.due_date,
+                "amount": loan_installment.amount,
+            }
+            for loan_installment in loan.create_loan_installments()
+        ]
     except Exception as create_installments_error:
         loan.delete()
         raise FailedToCreateInstallments
 
-    return {
+    loan_data = {
         'id': str(loan.id),
-        'client_id': loan.client.id,
         'amount': str(loan.amount),
         'interest_rate': str(loan.interest_rate),
-        'ip_address': loan.ip_address,
         'request_date': loan.request_date.isoformat(),
-        'bank_id': str(loan.bank.id),
+        'bank_name': str(loan.bank.name),
+        'loan_installments': loan_installments
     }
+
+    return loan_data
 
 
 def list_loans(

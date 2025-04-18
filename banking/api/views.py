@@ -14,8 +14,8 @@ from banking.api.utils.serializers import (
     CreateBankResponse,
     CreateBankSerializer,
     CreateLoanModel,
-    CreateLoanRequestSerializer,
-    CreateLoanResponseSerializer,
+    CreateLoanRequest,
+    CreateLoanResponse,
     CreatePaymentRequestModel,
     CreatePaymentRequestSerializer,
     CreatePaymentResponse,
@@ -38,9 +38,9 @@ from banking.api.utils.utils import (
 
 @swagger_auto_schema(
     method='post',
-    request_body=CreateLoanRequestSerializer,
+    request_body=CreateLoanRequest,
     responses={
-        201: CreateLoanResponseSerializer,
+        201: CreateLoanResponse,
         400: 'Occurs if payload is not in a valid schema.',
         404: 'Occurs if bank is not found',
         500: 'Occurs if an error occurs while requesting loans.',
