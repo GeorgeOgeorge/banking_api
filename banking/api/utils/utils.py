@@ -1,15 +1,14 @@
-from uuid import UUID
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 
 from django.db import connection
 from rest_framework.request import Request
 
+from banking.api.models import Bank, Loan, Payment
+from banking.api.utils.exceptions import RowNotFound
 from banking.api.utils.queries import (
-    CREATE_BANK_QUERY,
-    CREATE_LOAN_QUERY,
-    CREATE_PAYMENT_QUERY,
     LIST_LOAN_BALANCE_QUERY,
     LIST_LOAN_QUERY,
-    USER_OWNS_LOAN,
     list_payments_query
 )
 from banking.api.utils.serializers import (
@@ -46,35 +45,39 @@ def create_loan(
     Creates a new loan entry in the database.
 
     Args:
-        request (Request): The incoming HTTP request, used to get the authenticated user and IP address.
+        request (Request): The incoming HTTP request.
         loan_request (CreateLoanRequestModel): Validated request data with loan details.
 
     Returns:
         dict: Dictionary containing the newly created loan's data.
     '''
-    with connection.cursor() as cursor:
-        cursor.execute(CREATE_LOAN_QUERY, {
-            'client_id': request.user.id,
-            'amount': loan_request.amount,
-            'interest_rate': loan_request.interest_rate,
-            'bank_id': loan_request.bank_id,
-            'client_name': loan_request.client_name,
-            'ip_address': get_user_ip_addres(request)
-        })
-        row_data = cursor.fetchone()
+    bank = Bank.objects.filter(pk=loan_request.bank_id).first()
 
-        loan = {
-            'id': row_data[0],
-            'client_id': row_data[1],
-            'amount': row_data[2],
-            'interest_rate': row_data[3],
-            'bank_id': row_data[4],
-            'client_name': row_data[5],
-            'ip_address': row_data[6],
-            'request_date': row_data[7],
-        }
+    if bank is None:
+        raise RowNotFound('Bank not found.')
+    if loan_request.amount > bank.max_loan_amount:
+        raise ValueError('Requested amount exceeds bank limit.')
 
-    return loan
+    loan = Loan.objects.create(
+        id=uuid4(),
+        client=request.user,
+        amount=loan_request.amount,
+        interest_rate=loan_request.interest_rate,
+        ip_address=get_user_ip_addres(request),
+        request_date=datetime.now(tz=timezone.utc),
+        bank=bank
+    )
+
+    return {
+        'id': str(loan.id),
+        'client_id': loan.client.id,
+        'amount': str(loan.amount),
+        'interest_rate': str(loan.interest_rate),
+        'ip_address': loan.ip_address,
+        'request_date': loan.request_date.isoformat(),
+        'bank_id': str(loan.bank.id),
+    }
+
 
 
 def list_loans(
@@ -129,30 +132,23 @@ def create_payment(
     Returns:
         dict: Created payment data.
     '''
-    with connection.cursor() as cursor:
-        cursor.execute(USER_OWNS_LOAN, {
-            'client_id': request.user.id,
-            'loan_id': payment_request.loan_id,
-        })
+    loan = Loan.objects.filter(id=payment_request.loan_id, client=request.user).first()
 
-        user_owns_loan = cursor.fetchone()
-        if not user_owns_loan:
-            raise ValueError(f'User {request.user.id} is not owner of loan {payment_request.loan_id}')
+    if loan is None:
+        raise RowNotFound(f'User {request.user.id} is not owner of loan {payment_request.loan_id}')
 
-        cursor.execute(CREATE_PAYMENT_QUERY, {
-            'amount': payment_request.amount,
-            'loan_id': payment_request.loan_id,
-        })
-        row_data = cursor.fetchone()
+    payment = Payment.objects.create(
+        id=uuid4(),
+        loan=loan,
+        amount=payment_request.amount,
+        payment_date=datetime.now(tz=timezone.utc)
+    )
 
-        payment = {
-            'id': row_data[0],
-            'payment_date': row_data[1],
-            'amount': row_data[2],
-            'loan_id': row_data[3]
-        }
-
-    return payment
+    return {
+        'id': str(payment.id),
+        'payment_date': payment.payment_date.isoformat(),
+        'amount': str(payment.amount),
+    }
 
 
 def list_payments(
@@ -234,33 +230,29 @@ def create_bank(
     bank_data: CreateBankModel
 ) -> dict:
     '''
-    creates a new bank.
+    Creates a new bank.
 
-    Attributes:
+    Args:
         request (Request): Authenticated user context.
         bank_data (CreateBankModel): Bank info to be created.
 
     Returns:
         dict: Created bank data.
     '''
-    with connection.cursor() as cursor:
-        cursor.execute(CREATE_BANK_QUERY, {
-            'name': bank_data.name,
-            'bic': bank_data.bic,
-            'country': bank_data.country,
-            'interest_policy': bank_data.interest_policy,
-            'max_loan_amount': bank_data.max_loan_amount,
-            'created_by': request.user.id,
-        })
-        row_data = cursor.fetchone()
+    bank = Bank.objects.create(
+        name=bank_data.name,
+        bic=bank_data.bic,
+        country=bank_data.country,
+        interest_policy=bank_data.interest_policy,
+        max_loan_amount=bank_data.max_loan_amount,
+        created_by=request.user,
+    )
 
-        bank = {
-            'id': row_data[0],
-            'name': row_data[1],
-            'bic': row_data[2],
-            'country': row_data[3],
-            'interest_policy': row_data[4],
-            'max_loan_amount': row_data[5],
-        }
-
-    return bank
+    return {
+        'id': str(bank.id),
+        'name': bank.name,
+        'bic': bank.bic,
+        'country': bank.country,
+        'interest_policy': bank.interest_policy,
+        'max_loan_amount': str(bank.max_loan_amount),
+    }

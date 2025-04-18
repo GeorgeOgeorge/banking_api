@@ -1,27 +1,12 @@
 from banking.api.utils.serializers import ListPaymentsQueryParams
 
-CREATE_LOAN_QUERY = '''
-    INSERT INTO api_loan (id, client_id, amount, interest_rate, bank_id, client_name, ip_address, request_date)
-    VALUES (
-        gen_random_uuid(),
-        %(client_id)s,
-        %(amount)s,
-        %(interest_rate)s,
-        %(bank_id)s,
-        %(client_name)s,
-        %(ip_address)s,
-        NOW()
-    )
-    RETURNING id, client_id, amount, interest_rate, bank_id, client_name, ip_address, request_date
-'''
-
 LIST_LOAN_QUERY = '''
     select
         al.id,
         al.amount,
         al.interest_rate,
-        al.request_date,
-        ab.name as bank_name
+        ab.name as bank_name,
+        al.request_date
     from
         api_loan al
     join auth_user au on al.client_id = au.id
@@ -29,30 +14,6 @@ LIST_LOAN_QUERY = '''
     where au.id = %(client_id)s
     order by request_date desc
     limit %(limit)s offset %(offset)s;
-'''
-
-USER_OWNS_LOAN = '''
-    select
-        al.id
-    from
-        api_loan al
-    join auth_user au on
-        al.client_id = au.id
-    where
-        au.id = %(client_id)s
-        and al.id = %(loan_id)s
-    limit 1;
-'''
-
-CREATE_PAYMENT_QUERY = '''
-    insert into api_payment (id, payment_date, amount, loan_id)
-    values(
-        gen_random_uuid(),
-        now(),
-        %(amount)s,
-        %(loan_id)s
-    )
-    returning id, payment_date, amount, loan_id;
 '''
 
 LIST_LOAN_BALANCE_QUERY = '''
@@ -78,21 +39,6 @@ LIST_LOAN_BALANCE_QUERY = '''
         and al.id = %(loan_id)s
     group by al.id, ab.name
     limit 1;
-'''
-
-CREATE_BANK_QUERY = '''
-    insert into api_bank (id, name, bic, country, interest_policy, max_loan_amount, created_at, created_by_id)
-    values (
-        gen_random_uuid(),
-        %(name)s,
-        %(bic)s,
-        %(country)s,
-        %(interest_policy)s,
-        %(max_loan_amount)s,
-        now(),
-        %(created_by)s,
-    )
-    returning id, name, bic, country, interest_policy, max_loan_amount;
 '''
 
 
