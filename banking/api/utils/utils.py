@@ -6,7 +6,7 @@ from rest_framework.request import Request
 
 from banking.api.models import Bank, Loan
 from banking.api.utils.exceptions import FailedToCreateInstallments, LoanAlreadyPaid, RowNotFound
-from banking.api.utils.queries import LIST_LOAN_BALANCE_QUERY, LIST_LOAN_QUERY, list_payments_query
+from banking.api.utils.queries import LIST_LOAN_BALANCE_QUERY, list_loans_query, list_payments_query
 from banking.api.utils.serializers import (
     CreateBankModel,
     CreateLoanModel,
@@ -33,10 +33,7 @@ def get_user_ip_address(request: Request) -> str:
     return ip_address
 
 
-def create_bank(
-    request: Request,
-    bank_data: CreateBankModel
-) -> dict:
+def create_bank(request: Request, bank_data: CreateBankModel) -> dict:
     '''
     Creates a new bank.
 
@@ -158,10 +155,7 @@ def pay_loan(request: Request, payment_request: CreatePaymentModel) -> dict:
     }
 
 
-def list_loans(
-    request: Request,
-    query_params: ListLoansQueryParams
-) -> list[dict]:
+def list_loans(request: Request, query_params: ListLoansQueryParams) -> list[dict]:
     '''
     Returns a paginated list of loans for the authenticated user.
 
@@ -172,8 +166,12 @@ def list_loans(
     Returns:
         list[dict]: List of loans.
     '''
+    query = list_loans_query(query_params)
+    filters = query_params.model_dump(exclude_none=True)
+
     with connection.cursor() as cursor:
-        cursor.execute(LIST_LOAN_QUERY, {
+        cursor.execute(query, {
+            **filters,
             'client_id': request.user.id,
             'limit': query_params.limit,
             'offset': query_params.offset,
@@ -184,8 +182,10 @@ def list_loans(
                 'id': row_data[0],
                 'amount': row_data[1],
                 'interest_rate': row_data[2],
-                'bank_name': row_data[3],
+                'paid': row_data[3],
                 'request_date': row_data[4],
+                'bank_name': row_data[5],
+                'loan_installments': row_data[6],
             }
             for row_data in cursor
         ]
@@ -193,10 +193,7 @@ def list_loans(
     return loans
 
 
-def list_payments(
-    request: Request,
-    query_params: ListPaymentsQueryParams
-) -> list[dict]:
+def list_payments(request: Request, query_params: ListPaymentsQueryParams) -> list[dict]:
     '''
     Retrieves a filtered and paginated list of payments for the authenticated user.
 

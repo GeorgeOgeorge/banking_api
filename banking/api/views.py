@@ -11,8 +11,8 @@ from rest_framework.response import Response
 from banking.api.utils.exceptions import FailedToCreateInstallments, LoanAlreadyPaid, RowNotFound
 from banking.api.utils.serializers import (
     CreateBankModel,
-    CreateBankResponse,
     CreateBankRequest,
+    CreateBankResponse,
     CreateLoanModel,
     CreateLoanRequest,
     CreateLoanResponse,
