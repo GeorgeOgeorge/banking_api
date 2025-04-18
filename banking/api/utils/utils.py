@@ -194,41 +194,6 @@ def list_loans(request: Request, query_params: ListLoansQueryParams) -> list[dic
     return loans
 
 
-def list_payments(request: Request, query_params: ListPaymentsQueryParams) -> list[dict]:
-    '''
-    Retrieves a filtered and paginated list of payments for the authenticated user.
-
-    Args:
-        request (Request): HTTP request containing the authenticated user.
-        query_params (ListPaymentsQueryParams): Query parameters for filtering and pagination.
-
-    Returns:
-        list[dict]: List of payments matching the filters.
-    '''
-    query = list_payments_query(query_params)
-    filters = query_params.model_dump(exclude_none=True)
-
-    with connection.cursor() as cursor:
-        cursor.execute(query, {
-            **filters,
-            'client_id': request.user.id,
-            'limit': query_params.limit,
-            'offset': query_params.offset,
-        })
-
-        payments = [
-            {
-                'id': row_data[0],
-                'payment_date': row_data[1],
-                'amount': row_data[2],
-                'loan_id': row_data[3],
-            }
-            for row_data in cursor
-        ]
-
-    return payments
-
-
 def list_loan_balance(request: Request, loan_id: UUID) -> dict:
     '''
     Retrieves the remaining balance of a loan for the authenticated user.
@@ -269,3 +234,39 @@ def list_loan_balance(request: Request, loan_id: UUID) -> dict:
         }
 
     return loan_balance
+
+
+def list_payments(request: Request, query_params: ListPaymentsQueryParams) -> list[dict]:
+    '''
+    Retrieves a filtered and paginated list of payments for the authenticated user.
+
+    Args:
+        request (Request): HTTP request containing the authenticated user.
+        query_params (ListPaymentsQueryParams): Query parameters for filtering and pagination.
+
+    Returns:
+        list[dict]: List of payments matching the filters.
+    '''
+    query = list_payments_query(query_params)
+    filters = query_params.model_dump(exclude_none=True)
+
+    with connection.cursor() as cursor:
+        cursor.execute(query, {
+            **filters,
+            'client_id': request.user.id,
+            'limit': query_params.limit,
+            'offset': query_params.offset,
+        })
+
+        payments = [
+            {
+                'id': row_data[0],
+                'payment_date': row_data[1],
+                'amount': row_data[2],
+                'loan_id': row_data[3],
+                'bank_name': row_data[4],
+            }
+            for row_data in cursor
+        ]
+
+    return payments

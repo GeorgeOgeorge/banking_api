@@ -24,36 +24,6 @@ LOAN_STATISTICS_QUERY = """
 """
 
 
-def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
-    query = '''
-        select
-            ap.id,
-            ap.payment_date,
-            ap.amount,
-            ap.loan_id
-        from
-            api_payment ap
-        join api_loan al on
-            al.id = ap.loan_id
-        where
-            al.client_id = %(client_id)s
-    '''
-
-    if query_params.payment_id:
-        query += ' and ap.id = %(payment_id)s'
-    if query_params.loan_id:
-        query += ' and ap.loan_id = %(loan_id)s'
-    if query_params.payment_date:
-        query += ' and date(ap.payment_date) = %(payment_date)s'
-
-    query += '''
-        order by ap.payment_date desc
-        limit %(limit)s offset %(offset)s;
-    '''
-
-    return query
-
-
 def list_loans_query(query_params: ListLoansQueryParams) -> str:
     query = """
         select
@@ -92,6 +62,35 @@ def list_loans_query(query_params: ListLoansQueryParams) -> str:
         group by
             l.id, l.amount, l.interest_rate, l.paid, l.request_date, b.name
         order by l.request_date desc
+        limit %(limit)s offset %(offset)s;
+    '''
+
+    return query
+
+
+def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
+    query = '''
+        select
+            ap.id,
+            ap.payment_date,
+            ap.amount,
+            ap.loan_id,
+            ab.name as bank_name
+        from api_payment ap
+        join api_loan al on al.id = ap.loan_id
+        join api_bank ab on ab.id = al.bank_id
+        where al.client_id = %(client_id)s
+    '''
+
+    if query_params.payment_id:
+        query += ' and ap.id = %(payment_id)s'
+    if query_params.loan_id:
+        query += ' and ap.loan_id = %(loan_id)s'
+    if query_params.payment_date:
+        query += ' and date(ap.payment_date) = %(payment_date)s'
+
+    query += '''
+        order by ap.payment_date desc
         limit %(limit)s offset %(offset)s;
     '''
 

@@ -24,6 +24,7 @@ from banking.api.utils.serializers import (
     ListLoansResponse,
     ListPaymentsQueryParams,
     ListPaymentsQueryParamsSerializer,
+    ListPaymentsResponse,
     LoanStatisticsResponse,
 )
 from banking.api.utils.utils import (
@@ -236,7 +237,7 @@ def loan_statistics_route(request: Request, loan_id: UUID) -> Response:
     method='get',
     query_serializer=ListPaymentsQueryParamsSerializer,
     responses={
-        200: CreatePaymentResponse,
+        200: ListPaymentsResponse(many=True),
         400: 'Occurs if query params are not in a valid schema.',
         500: 'Occurs if an error occurs while fetching payments.',
     },

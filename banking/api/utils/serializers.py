@@ -99,7 +99,7 @@ class ListLoansQueryParams(PaginationQueryParams):
     interest_rate: float | None = None
     amount: float | None = None
     bank_name: str | None = None
-    request_date: datetime | None = None
+    request_date: date | None = None
 
     model_config = {
         'str_strip_whitespace': True,
@@ -141,12 +141,14 @@ class ListPaymentsQueryParams(PaginationQueryParams):
 
         return date_str
 
-
 class ListPaymentsQueryParamsSerializer(PaginationQueryParamsSerializer):
-    payment_id = UUIDField(required=False, default=None, allow_null=True)
-    loan_id = UUIDField(required=False, default=None, allow_null=True)
-    payment_date = DateField(required=False, default=None, allow_null=True, format='%Y-%m-%d')
+    payment_id = UUIDField(required=False, default=None, allow_null=True, help_text="Filter payments by payment unique identifier.")
+    loan_id = UUIDField(required=False, default=None, allow_null=True, help_text="Filter payments by associated loan identifier.")
+    payment_date = DateField(required=False, default=None, allow_null=True, format='%Y-%m-%d', help_text="Filter payments by specific date in format YYYY-MM-DD.")
 
+class ListPaymentsResponse(CreatePaymentResponse):
+    loan_id = UUIDField(help_text='Loan associated with the payment.')
+    bank_name = CharField(help_text='Name of the bank that granted the loan.')
 
 ####################################### loan_statistics_route #######################################
 class LoanStatisticsResponse(Serializer):
