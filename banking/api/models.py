@@ -98,11 +98,6 @@ class Loan(Model):
         Calculates the monthly installment value for a loan based on the principal amount,
         interest rate, and number of installments using compound interest.
 
-        Args:
-            principal_amount (float): The principal loan amount.
-            annual_interest_rate (float): The annual interest rate (in percentage).
-            number_of_installments (int): The number of monthly installments to be paid.
-
         Returns:
             Decimal: The calculated monthly installment value, rounded to two decimal places.
 
@@ -112,7 +107,7 @@ class Loan(Model):
             - If the interest rate is non-zero, the formula used is the compound interest formula for installment loans.
         '''
         monthly_interest_rate = float(self.interest_rate) / 100 / 12  # Monthly rate from annual interest rate
-        principal_amount = float(principal_amount)
+        principal_amount = float(self.amount)
 
         if monthly_interest_rate == 0:  # IMPORTANT, in case of no interest rate
             monthly_payment = Decimal(principal_amount / self.installments_qt)

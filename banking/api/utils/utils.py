@@ -75,7 +75,7 @@ def create_loan(request: Request, loan_request: CreateLoanModel) -> dict:
                 "due_date": loan_installment.due_date,
                 "amount": loan_installment.amount,
             }
-            for loan_installment in loan.create_loan_installments()
+            for loan_installment in loan.generate_loan_installments()
         ]
     except Exception as create_installments_error:
         loan.delete()
