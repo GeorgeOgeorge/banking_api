@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from banking.api.utils.exceptions import FailedToCreateInstallments, RowNotFound
+from banking.api.utils.exceptions import FailedToCreateInstallments, LoanAlreadyPaid, RowNotFound
 from banking.api.utils.serializers import (
     CreateBankModel,
     CreateBankResponse,
@@ -16,9 +16,9 @@ from banking.api.utils.serializers import (
     CreateLoanModel,
     CreateLoanRequest,
     CreateLoanResponse,
-    CreatePaymentRequestModel,
-    CreatePaymentRequestSerializer,
+    CreatePaymentModel,
     CreatePaymentResponse,
+    CreatePaymentSerializer,
     ListLoansQueryParams,
     ListLoansQueryParamsSerializer,
     ListLoansResponse,
@@ -29,10 +29,10 @@ from banking.api.utils.serializers import (
 from banking.api.utils.utils import (
     create_bank,
     create_loan,
-    create_payment,
     list_loan_balance,
     list_loans,
     list_payments,
+    pay_loan,
 )
 
 
@@ -123,10 +123,10 @@ def list_loans_route(request: Request) -> Response:
 
 @swagger_auto_schema(
     method='post',
-    request_body=CreatePaymentRequestSerializer,
+    request_body=CreatePaymentSerializer,
     responses={
         200: CreatePaymentResponse,
-        400: 'Occurs if payload is not in a valid schema.',
+        400: 'Occurs if payload is not in a valid schema, or if loan has already been paid',
         404: 'Occurs if not able to find selected loan or loan is not owned by user.',
         500: 'Occurs if an error occurs while paying loan.',
     },
@@ -146,14 +146,16 @@ def create_payment_route(request: Request) -> Response:
         Response: API response with payment data or error message.
     '''
     try:
-        payment_request = CreatePaymentRequestModel(**request.data)
+        payment_request = CreatePaymentModel(**request.data)
     except ValidationError as payload_error:
         return Response(payload_error.json(), status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        payment = create_payment(request, payment_request)
+        payment = pay_loan(request, payment_request)
     except RowNotFound as loan_not_found:
         return Response({'error': str(loan_not_found)}, status=status.HTTP_404_NOT_FOUND)
+    except LoanAlreadyPaid as loan_already_paid:
+        return Response({'error': 'Loan has already been paid'}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as loan_payment_error:
         return Response({'error': 'Error while paying loan'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

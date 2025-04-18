@@ -1,6 +1,8 @@
 import uuid
+from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Generator
+from uuid import uuid4
 
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.models import User
@@ -71,6 +73,7 @@ class Loan(Model):
         client (User): The user who requested the loan.
         amount (Decimal): The principal loan amount.
         interest_rate (Decimal): The interest rate per month (%).
+        paid (bool): Indicates whether the loan has been paid.
         ip_address (str): The IP address from which the request originated.
         request_date (datetime): The timestamp when the loan was requested.
         bank (Bank): Bank entity responsible for the loan.
@@ -80,6 +83,7 @@ class Loan(Model):
     amount = DecimalField(max_digits=12, decimal_places=2)
     interest_rate = DecimalField(max_digits=5, decimal_places=2)
     installments_qt = IntegerField(default=0)
+    paid = BooleanField(default=False)
     ip_address = GenericIPAddressField()
     request_date = DateTimeField(auto_now_add=True)
     client = ForeignKey(User, on_delete=CASCADE, related_name='loans')
@@ -138,6 +142,36 @@ class Loan(Model):
             )
             yield installment
 
+    def pay(self, payment_amount: float) -> tuple['Payment', float]:
+        '''
+        Applies a payment to the next pending or overdue installment. If the amount exceeds
+        the needed value, the difference is returned as change.
+
+        Args:
+            payment_amount (float): The total amount to be paid toward the loan.
+
+        Returns:
+            tuple[Payment, float]: The created payment and the remaining amount as change.
+        '''
+        loan_installment = LoanInstallment.objects.filter(
+            loan=self,
+            status__in=[LoanInstallment.PENDING, LoanInstallment.OVERDUE]
+        ).order_by('due_date').first()
+
+        if loan_installment is None:
+            raise ValueError('There are no pending or overdue installments to pay.')
+
+        ammount_to_pay = min(Decimal(payment_amount), loan_installment.amount - loan_installment.paid_ammount)
+        payment = loan_installment.pay(ammount_to_pay)
+
+        change = float(Decimal(payment_amount) - ammount_to_pay)
+
+        if not LoanInstallment.objects.filter(loan=self, paid=False).exists():
+            self.paid = True
+            self.save()
+
+        return payment, change
+
 
 class LoanInstallment(Model):
     '''
@@ -150,6 +184,7 @@ class LoanInstallment(Model):
         due_date (datetime): The due date for the installment.
         amount (Decimal): The amount to be paid in the installment.
         paid (bool): Indicates whether the installment has been paid.
+        paid_ammount (Decimal): Amount already paid to installment.
         payment_date (datetime): The date when the installment was paid (nullable).
         status (str): The status of the installment (pending, paid, overdue).
     '''
@@ -169,6 +204,7 @@ class LoanInstallment(Model):
     due_date = DateTimeField()
     amount = DecimalField(max_digits=12, decimal_places=2)
     paid = BooleanField(default=False)
+    paid_ammount = DecimalField(default=0, max_digits=12, decimal_places=2)
     payment_date = DateTimeField(null=True, blank=True)
     status = CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING)
 
@@ -179,6 +215,34 @@ class LoanInstallment(Model):
             Index(fields=['due_date']),
             Index(fields=['status'])
         ]
+
+    def pay(self, payment_amount: float) -> 'Payment':
+        '''
+        Registers a payment for this installment. If the total paid amount reaches or
+        exceeds the required amount, marks the installment as fully paid.
+
+        Args:
+            payment_amount (float): The amount to be paid in this transaction.
+
+        Returns:
+            Payment: The created payment instance.
+        '''
+        payment = Payment.objects.create(
+            id=uuid4(),
+            loan_installment=self,
+            payment_date=timezone.now(),
+            amount=Decimal(payment_amount),
+        )
+
+        self.paid_ammount += payment_amount
+
+        if self.paid_ammount >= self.amount:
+            self.paid = True
+            self.payment_date = datetime.now(tz=timezone.utc)
+            self.status = self.PAID
+
+        self.save()
+        return payment
 
 
 class Payment(Model):

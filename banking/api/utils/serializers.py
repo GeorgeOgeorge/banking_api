@@ -62,6 +62,28 @@ class CreateLoanResponse(Serializer):
     bank_name = CharField(help_text="Name of the bank that issued the loan.")
     loan_installments = LoanInstallment(many=True, help_text="List of generated loan installments.")
 
+
+####################################### create_payment_route #######################################
+class CreatePaymentSerializer(Serializer):
+    loan_id = UUIDField(help_text="Loan ID to which the payment will be applied.")
+    amount = DecimalField(min_value=1, decimal_places=2, help_text="Amount to pay toward the loan (must be at least 1).")
+
+class CreatePaymentModel(BaseModel):
+    loan_id: UUID
+    amount: float
+
+    model_config = {
+        'str_strip_whitespace': True,
+        'extra': 'forbid'
+    }
+
+class CreatePaymentResponse(Serializer):
+    id = UUIDField(help_text="Unique identifier for the created payment.")
+    payment_date = DateTimeField(help_text="Timestamp when the payment was recorded.")
+    amount = DecimalField(help_text="Amount that was actually applied to the installment.")
+    change = DecimalField(help_text="Amount returned as change.")
+
+
 ####################################### list_loans_route #######################################
 class ListLoansQueryParamsSerializer(PaginationQueryParamsSerializer):
     ...
@@ -80,27 +102,6 @@ class ListLoansResponse(Serializer):
     bank_name = CharField()
     request_date = DateTimeField()
 
-####################################### create_payment_route #######################################
-class CreatePaymentRequestSerializer(Serializer):
-    loan = UUIDField()
-    amount = DecimalField(max_digits=10, decimal_places=2)
-
-
-class CreatePaymentRequestModel(BaseModel):
-    loan_id: UUID
-    amount: float
-
-    model_config = {
-        'str_strip_whitespace': True,
-        'extra': 'forbid'
-    }
-
-
-class CreatePaymentResponse(Serializer):
-    id = UUIDField()
-    payment_date = DateTimeField()
-    amount = DecimalField(max_digits=10, decimal_places=2)
-    loan_id = UUIDField()
 
 ####################################### list_payments_route #######################################
 class ListPaymentsQueryParams(PaginationQueryParams):

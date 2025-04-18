@@ -4,13 +4,13 @@ from uuid import UUID, uuid4
 from django.db import connection
 from rest_framework.request import Request
 
-from banking.api.models import Bank, Loan, Payment
-from banking.api.utils.exceptions import FailedToCreateInstallments, RowNotFound
+from banking.api.models import Bank, Loan
+from banking.api.utils.exceptions import FailedToCreateInstallments, LoanAlreadyPaid, RowNotFound
 from banking.api.utils.queries import LIST_LOAN_BALANCE_QUERY, LIST_LOAN_QUERY, list_payments_query
 from banking.api.utils.serializers import (
     CreateBankModel,
     CreateLoanModel,
-    CreatePaymentRequestModel,
+    CreatePaymentModel,
     ListLoansQueryParams,
     ListPaymentsQueryParams,
 )
@@ -40,7 +40,7 @@ def create_loan(request: Request, loan_request: CreateLoanModel) -> dict:
 
     Args:
         request (Request): The incoming HTTP request.
-        loan_request (CreateLoanRequestModel): Validated request data with loan details.
+        loan_request (CreateLoanModel): Validated request data with loan details.
 
     Returns:
         dict: Dictionary containing the newly created loan's data.
@@ -83,11 +83,11 @@ def create_loan(request: Request, loan_request: CreateLoanModel) -> dict:
 
     loan_data = {
         'id': str(loan.id),
-        'amount': str(loan.amount),
-        'interest_rate': str(loan.interest_rate),
+        'amount': loan.amount,
+        'interest_rate': loan.interest_rate,
         'request_date': loan.request_date.isoformat(),
-        'bank_name': str(loan.bank.name),
-        'loan_installments': loan_installments
+        'bank_name': loan.bank.name,
+        'loan_installments': loan_installments,
     }
 
     return loan_data
@@ -128,19 +128,17 @@ def list_loans(
     return loans
 
 
-def create_payment(
-    request: Request,
-    payment_request: CreatePaymentRequestModel
-) -> dict:
+def pay_loan(request: Request, payment_request: CreatePaymentModel) -> dict:
     '''
     Creates a loan payment.
 
     Args:
         request (Request): Request containing the authenticated user.
-        payment_request (CreatePaymentRequestModel): Payment input data.
+        payment_request (CreatePaymentModel): Payment input data.
 
     Raises:
-        ValueError: If the user does not own the loan.
+        RowNotFound: If the user does not own the loan.
+        ValueError: If the loan is already paid or other validation fails.
 
     Returns:
         dict: Created payment data.
@@ -149,18 +147,16 @@ def create_payment(
 
     if loan is None:
         raise RowNotFound(f'User {request.user.id} is not owner of loan {payment_request.loan_id}')
+    if loan.paid:
+        raise LoanAlreadyPaid('Loan has already been paid')
 
-    payment = Payment.objects.create(
-        id=uuid4(),
-        loan=loan,
-        amount=payment_request.amount,
-        payment_date=datetime.now(tz=timezone.utc)
-    )
+    payment, change = loan.pay(payment_request.amount)
 
     return {
         'id': str(payment.id),
         'payment_date': payment.payment_date.isoformat(),
-        'amount': str(payment.amount),
+        'amount': payment.amount,
+        'change': change,
     }
 
 
