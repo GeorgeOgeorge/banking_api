@@ -16,7 +16,7 @@ from rest_framework.serializers import (
 )
 
 
-# generics
+####################################### generics #######################################
 class PaginationQueryParams(BaseModel):
     page: Annotated[int, Field(ge=1, description='Page number')] = 1
     limit: Annotated[int, Field(ge=1, description='Items per page')] = 10
@@ -31,7 +31,7 @@ class PaginationQueryParamsSerializer(Serializer):
     limit = IntegerField(min_value=1, default=10, help_text='Items per page')
 
 
-# create_loan_request
+####################################### create_loan_request #######################################
 class LoanInstallment(Serializer):
     id = UUIDField()
     due_date = DateTimeField()
@@ -63,7 +63,7 @@ class CreateLoanResponse(Serializer):
     bank_name = CharField()
     loan_installments = LoanInstallment(many=True)
 
-# list_loans_route
+####################################### list_loans_route #######################################
 class ListLoansQueryParamsSerializer(PaginationQueryParamsSerializer):
     ...
 
@@ -81,7 +81,7 @@ class ListLoansResponse(Serializer):
     bank_name = CharField()
     request_date = DateTimeField()
 
-# create_payment_route
+####################################### create_payment_route #######################################
 class CreatePaymentRequestSerializer(Serializer):
     loan = UUIDField()
     amount = DecimalField(max_digits=10, decimal_places=2)
@@ -103,7 +103,7 @@ class CreatePaymentResponse(Serializer):
     amount = DecimalField(max_digits=10, decimal_places=2)
     loan_id = UUIDField()
 
-# list_payments_route
+####################################### list_payments_route #######################################
 class ListPaymentsQueryParams(PaginationQueryParams):
     payment_id: UUID | None = None
     loan_id: UUID | None = None
@@ -130,7 +130,7 @@ class ListPaymentsQueryParamsSerializer(PaginationQueryParamsSerializer):
     loan_id = UUIDField(required=False, default=None, allow_null=True)
     payment_date = DateField(required=False, default=None, allow_null=True, format='%Y-%m-%d')
 
-# list_loan_balance_route
+####################################### list_loan_balance_route #######################################
 class LoanBalanceResponse(Serializer):
     id = UUIDField()
     bank_name = CharField()
@@ -140,7 +140,7 @@ class LoanBalanceResponse(Serializer):
     total_paid = DecimalField(max_digits=10, decimal_places=2)
     remaining_debt = DecimalField(max_digits=10, decimal_places=2)
 
-# create_bank_route
+####################################### create_bank_route #######################################
 class CreateBankModel(BaseModel):
     name: Annotated[str, Field(max_length=100)]
     bic: Optional[Annotated[str, Field(max_length=20)]] = None
