@@ -6,7 +6,7 @@ from rest_framework.request import Request
 
 from banking.api.models import Bank, Loan
 from banking.api.utils.exceptions import FailedToCreateInstallments, LoanAlreadyPaid, RowNotFound
-from banking.api.utils.queries import LIST_LOAN_BALANCE_QUERY, list_loans_query, list_payments_query
+from banking.api.utils.queries import LOAN_STATISTICS_QUERY, list_loans_query, list_payments_query
 from banking.api.utils.serializers import (
     CreateBankModel,
     CreateLoanModel,
@@ -244,7 +244,7 @@ def list_loan_balance(request: Request, loan_id: UUID) -> dict:
         dict: A dictionary containing loan and remaining balance information.
     '''
     with connection.cursor() as cursor:
-        cursor.execute(LIST_LOAN_BALANCE_QUERY, {
+        cursor.execute(LOAN_STATISTICS_QUERY, {
             'client_id': request.user.id,
             'loan_id': loan_id,
         })
@@ -254,12 +254,18 @@ def list_loan_balance(request: Request, loan_id: UUID) -> dict:
 
         loan_balance = {
             'id': row_data[0],
-            'bank_name': row_data[1],
-            'amount': row_data[2],
-            'interest_rate': row_data[3],
-            'request_date': row_data[4],
-            'total_paid': row_data[5],
-            'remaining_debt': row_data[6],
+            'amount': row_data[1],
+            'interest_rate': row_data[2],
+            'paid': row_data[3],
+            'bank_name': row_data[4],
+            'installments_count': row_data[5],
+            'paid_installments': row_data[6],
+            'pending_installments': row_data[7],
+            'overdue_installments': row_data[8],
+            'total_paid': row_data[9],
+            'outstanding_balance': row_data[10],
+            'total_pending': row_data[11],
+            'total_overdue': row_data[12],
         }
 
     return loan_balance

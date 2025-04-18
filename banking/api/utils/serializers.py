@@ -147,15 +147,22 @@ class ListPaymentsQueryParamsSerializer(PaginationQueryParamsSerializer):
     loan_id = UUIDField(required=False, default=None, allow_null=True)
     payment_date = DateField(required=False, default=None, allow_null=True, format='%Y-%m-%d')
 
-####################################### list_loan_balance_route #######################################
-class LoanBalanceResponse(Serializer):
-    id = UUIDField()
-    bank_name = CharField()
-    amount = DecimalField(max_digits=10, decimal_places=2)
-    interest_rate = DecimalField(max_digits=10, decimal_places=2)
-    request_date = DateField()
-    total_paid = DecimalField(max_digits=10, decimal_places=2)
-    remaining_debt = DecimalField(max_digits=10, decimal_places=2)
+
+####################################### loan_statistics_route #######################################
+class LoanStatisticsResponse(Serializer):
+    id = UUIDField(help_text="Unique identifier of the loan.")
+    amount = DecimalField(max_digits=10, decimal_places=2, help_text="Total amount granted for the loan.")
+    interest_rate = DecimalField(max_digits=5, decimal_places=2, help_text="Interest rate applied to the loan.")
+    paid = BooleanField(help_text="Indicates whether the loan is fully paid.")
+    bank_name = CharField(help_text="Name of the bank that granted the loan.")
+    installments_count = IntegerField(help_text="Total number of installments associated with the loan.")
+    paid_installments = IntegerField(help_text="Number of installments that have been paid.")
+    pending_installments = IntegerField(help_text="Number of installments that are still pending.")
+    overdue_installments = IntegerField(help_text="Number of installments that are overdue.")
+    total_paid = DecimalField(max_digits=12, decimal_places=2, help_text="Total amount that has been paid.")
+    outstanding_balance = DecimalField(max_digits=12, decimal_places=2, help_text="Remaining balance to be paid on the loan.")
+    total_pending = DecimalField(max_digits=12, decimal_places=2, help_text="Total amount pending across all pending installments.")
+    total_overdue = DecimalField(max_digits=12, decimal_places=2, help_text="Total overdue amount across all overdue installments.")
 
 
 ####################################### create_bank_route #######################################

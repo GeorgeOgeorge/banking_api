@@ -1,29 +1,27 @@
 from banking.api.utils.serializers import ListLoansQueryParams, ListPaymentsQueryParams
 
-LIST_LOAN_BALANCE_QUERY = '''
+LOAN_STATISTICS_QUERY = """
     select
-        al.id,
-        ab.name as bank_name,
-        al.amount,
-        al.interest_rate,
-        al.request_date,
-        coalesce(sum(p.amount), 0) total_paid,
-        round(
-            (
-                al.amount +
-                (al.amount * al.interest_rate * greatest(date_part('month', current_date - al.request_date), 0))
-                - coalesce(sum(p.amount), 0)
-            )::numeric,
-            2
-        ) as remaining_debt
-    from api_loan al
-    join api_bank ab on al.bank_id = ab.id
-    left join api_payment p on p.loan_id = al.id
-    where al.client_id = %(client_id)s
-        and al.id = %(loan_id)s
-    group by al.id, ab.name
-    limit 1;
-'''
+        l.id,
+        l.amount,
+        l.interest_rate,
+        l.paid,
+        b.name as bank_name,
+        count(li.id) as installments_count,
+        count(*) filter (where li.status = 'paid') as paid_installments,
+        count(*) filter (where li.status = 'pending') as pending_installments,
+        count(*) filter (where li.status = 'overdue') as overdue_installments,
+        coalesce(sum(li.paid_ammount), 0) as total_paid,
+        coalesce(sum(li.amount - li.paid_ammount), 0) as outstanding_balance,
+        coalesce(sum(case when li.status = 'pending' then li.amount - li.paid_ammount else 0 end), 0) as total_pending,
+        coalesce(sum(case when li.status = 'overdue' then li.amount - li.paid_ammount else 0 end), 0) as total_overdue
+    from api_loan l
+    join api_bank b on l.bank_id = b.id
+    left join api_loaninstallment li on li.loan_id = l.id
+    where l.id = %(loan_id)s
+        and l.client_id = %(client_id)s
+    group by l.id, l.amount, l.interest_rate, l.paid, b.name;
+"""
 
 
 def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
@@ -57,7 +55,7 @@ def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
 
 
 def list_loans_query(query_params: ListLoansQueryParams) -> str:
-    query = '''
+    query = """
         select
             l.id,
             l.amount,
@@ -77,7 +75,7 @@ def list_loans_query(query_params: ListLoansQueryParams) -> str:
         join api_bank b on l.bank_id = b.id
         left join api_loaninstallment li on li.loan_id = l.id
         where l.client_id = %(client_id)s
-    '''
+    """
 
     if query_params.paid is not None:
         query += ' and l.paid = %(paid)s'
