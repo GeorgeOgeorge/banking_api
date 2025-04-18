@@ -66,7 +66,7 @@ class CreateLoanResponse(Serializer):
 ####################################### create_payment_route #######################################
 class CreatePaymentSerializer(Serializer):
     loan_id = UUIDField(help_text="Loan ID to which the payment will be applied.")
-    amount = DecimalField(min_value=1, decimal_places=2, help_text="Amount to pay toward the loan (must be at least 1).")
+    amount = DecimalField(min_value=1, max_digits=10, decimal_places=2, help_text="Amount to pay toward the loan (must be at least 1).")
 
 class CreatePaymentModel(BaseModel):
     loan_id: UUID
@@ -80,8 +80,8 @@ class CreatePaymentModel(BaseModel):
 class CreatePaymentResponse(Serializer):
     id = UUIDField(help_text="Unique identifier for the created payment.")
     payment_date = DateTimeField(help_text="Timestamp when the payment was recorded.")
-    amount = DecimalField(help_text="Amount that was actually applied to the installment.")
-    change = DecimalField(help_text="Amount returned as change.")
+    amount = DecimalField(max_digits=10, decimal_places=2, help_text="Amount that was actually applied to the installment.")
+    change = DecimalField(max_digits=10, decimal_places=2, help_text="Amount returned as change.")
 
 
 ####################################### list_loans_route #######################################
