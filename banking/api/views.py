@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from banking.api.utils.exceptions import RowNotFound
 from banking.api.utils.serializers import (
     CreateBankModel,
     CreateBankResponse,
@@ -41,6 +42,7 @@ from banking.api.utils.utils import (
     responses={
         201: CreateLoanResponseSerializer,
         400: 'Occurs if payload is not in a valid schema.',
+        404: 'Occurs if bank is not found',
         500: 'Occurs if an error occurs while requesting loans.',
     },
     operation_description='Requests a new loan',
@@ -62,12 +64,19 @@ def create_loan_route(request: Request) -> Response:
     try:
         loan_request = CreateLoanRequestModel(**request.data)
     except ValidationError as payload_error:
-        return Response(payload_error.json(), status=status.HTTP_400_BAD_REQUEST)
+        return Response(payload_error.errors(), status=status.HTTP_400_BAD_REQUEST)
 
     try:
         loan: dict = create_loan(request, loan_request)
-    except Exception as request_loan_error:
-        return Response({'error': 'Error while requesting loan'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except RowNotFound as bank_not_found:
+        return Response({'error': str(bank_not_found)}, status=status.HTTP_404_NOT_FOUND)
+    except ValueError as validation_error:
+        return Response({'error': str(validation_error)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        return Response(
+            {'error': 'Unexpected error while requesting loan.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
     return Response(loan, status=status.HTTP_201_CREATED)
 
@@ -138,8 +147,8 @@ def create_payment_route(request: Request) -> Response:
 
     try:
         payment = create_payment(request, payment_request)
-    except ValueError as user_doesnt_own_loan:
-        return Response({'error': str(user_doesnt_own_loan)}, status=status.HTTP_404_NOT_FOUND)
+    except RowNotFound as loan_not_found:
+        return Response({'error': str(loan_not_found)}, status=status.HTTP_404_NOT_FOUND)
     except Exception as loan_payment_error:
         return Response({'error': 'Error while paying loan'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
