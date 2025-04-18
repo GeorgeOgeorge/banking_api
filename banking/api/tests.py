@@ -10,6 +10,7 @@ from rest_framework.test import APIRequestFactory
 from rest_framework.test import force_authenticate
 
 from banking.api.views import (
+    create_bank_route,
     create_loan_route,
     create_payment_route,
     list_loan_balance_route,
@@ -17,6 +18,9 @@ from banking.api.views import (
     list_payments_route
 )
 from banking.api.utils.serializers import (
+    CreateBankModel,
+    CreateBankResponse,
+    CreateBankSerializer,
     CreateLoanRequestModel,
     CreateLoanRequestSerializer,
     CreateLoanResponseSerializer,
@@ -213,6 +217,109 @@ class SerializerTests(TestCase):
         self.assertTrue(serializer.is_valid())
         self.assertEqual(serializer.validated_data["amount"], Decimal("1000.00"))
 
+    def test_create_bank_model_valid(self):
+        """Test CreateBankModel validation and serialization"""
+        bank_data = {
+            "name": "Banco Central",
+            "bic": "BCBRBRSPXXX",
+            "country": "Brasil",
+            "interest_policy": "Padrão",
+            "max_loan_amount": Decimal("500000.00")
+        }
+
+        model = CreateBankModel(**bank_data)
+
+        self.assertEqual(model.name, "Banco Central")
+        self.assertEqual(model.bic, "BCBRBRSPXXX")
+        self.assertEqual(model.country, "Brasil")
+        self.assertEqual(model.interest_policy, "Padrão")
+        self.assertEqual(model.max_loan_amount, Decimal("500000.00"))
+
+    def test_create_bank_model_missing_optional_fields(self):
+        """Test CreateBankModel with only required fields"""
+        bank_data = {
+            "name": "Banco Simples",
+            "country": "Brasil",
+            "max_loan_amount": Decimal("100000.00")
+        }
+
+        model = CreateBankModel(**bank_data)
+
+        self.assertEqual(model.name, "Banco Simples")
+        self.assertIsNone(model.bic)
+        self.assertEqual(model.country, "Brasil")
+        self.assertIsNone(model.interest_policy)
+        self.assertEqual(model.max_loan_amount, Decimal("100000.00"))
+
+    def test_create_bank_model_invalid_data(self):
+        """Test CreateBankModel validation failure for invalid data"""
+        invalid_data = {
+            "name": "Banco Inválido",
+            "bic": "TOO-LONG-CODE-EXCEEDING-LIMIT",
+            "country": "Brasil",
+            "interest_policy": "Política",
+            "max_loan_amount": Decimal("999999999999.99")
+        }
+
+        with self.assertRaises(ValueError):
+            CreateBankModel(**invalid_data)
+
+    def test_create_bank_serializer_valid(self):
+        """Test CreateBankSerializer validation and serialization"""
+        bank_data = {
+            "name": "Banco Alpha",
+            "bic": "ALPHBRSP",
+            "country": "Brasil",
+            "interest_policy": "Juros fixos",
+            "max_loan_amount": Decimal("250000.00")
+        }
+
+        serializer = CreateBankSerializer(data=bank_data)
+        self.assertTrue(serializer.is_valid())
+        self.assertEqual(serializer.validated_data["max_loan_amount"], Decimal("250000.00"))
+
+    def test_create_bank_serializer_missing_optional_fields(self):
+        """Test CreateBankSerializer with only required fields"""
+        bank_data = {
+            "name": "Banco Beta",
+            "country": "Brasil",
+            "max_loan_amount": Decimal("100000.00")
+        }
+
+        serializer = CreateBankSerializer(data=bank_data)
+        self.assertTrue(serializer.is_valid())
+        self.assertEqual(serializer.validated_data["name"], "Banco Beta")
+        self.assertIsNone(serializer.validated_data.get("bic"))
+        self.assertIsNone(serializer.validated_data.get("interest_policy"))
+        self.assertEqual(serializer.validated_data["max_loan_amount"], Decimal("100000.00"))
+
+    def test_create_bank_serializer_invalid_max_loan_amount(self):
+        """Test CreateBankSerializer invalid max_loan_amount"""
+        bank_data = {
+            "name": "Banco Gama",
+            "country": "Brasil",
+            "max_loan_amount": "1234567890123.45"
+        }
+
+        serializer = CreateBankSerializer(data=bank_data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("max_loan_amount", serializer.errors)
+
+    def test_create_bank_response_serializer(self):
+        """Test CreateBankResponse serializer"""
+        bank_data = {
+            "id": uuid4(),
+            "name": "Banco Omega",
+            "bic": "OMG123456",
+            "country": "Brasil",
+            "interest_policy": "Juros progressivos",
+            "max_loan_amount": Decimal("999999.99")
+        }
+
+        serializer = CreateBankResponse(data=bank_data)
+        self.assertTrue(serializer.is_valid())
+        self.assertEqual(serializer.validated_data["name"], "Banco Omega")
+        self.assertEqual(serializer.validated_data["max_loan_amount"], Decimal("999999.99"))
 
 class TestQueries(TestCase):
     def test_list_payments_query(self):
@@ -569,10 +676,68 @@ class TestUtils(TestCase):
         with self.assertRaises(Exception):
             list_loan_balance(request, loan_id)
 
+    @patch('banking.api.utils.utils.connection.cursor')
+    def test_create_bank_success(self, mock_cursor):
+        """Test Bank creation success"""
+        from banking.api.utils.utils import create_bank
+
+        mock_cursor.return_value.__enter__.return_value.fetchone.return_value = (
+            self.bank_id,
+            'Test Bank',
+            'TBIC1234',
+            'BR',
+            'FIXED',
+            100000.00,
+        )
+
+        request = MagicMock()
+        request.user.id = 1
+
+        bank_data = MagicMock(
+            name='Test Bank',
+            bic='TBIC1234',
+            country='BR',
+            interest_policy='FIXED',
+            max_loan_amount=100000.00
+        )
+
+        result = create_bank(request, bank_data)
+
+        expected_result = {
+            'id': self.bank_id,
+            'name': 'Test Bank',
+            'bic': 'TBIC1234',
+            'country': 'BR',
+            'interest_policy': 'FIXED',
+            'max_loan_amount': 100000.00
+        }
+
+        self.assertEqual(result, expected_result)
+
+    @patch('banking.api.utils.utils.connection.cursor')
+    def test_create_bank_fail_database_error(self, mock_cursor):
+        """Test Bank creation error"""
+        from banking.api.utils.utils import create_bank
+
+        mock_cursor.return_value.__enter__.side_effect = Exception('Database error')
+
+        request = MagicMock()
+        request.user.id = 1
+
+        bank_data = MagicMock(
+            name='Test Bank',
+            bic='TBIC1234',
+            country='BR',
+            interest_policy='FIXED',
+            max_loan_amount=100000.00
+        )
+
+        with self.assertRaises(Exception):
+            create_bank(request, bank_data)
 
 class TestViews(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='foo', password='test123')
+        self.user = User.objects.create_superuser(username='foo', password='test123')
         self.factory = APIRequestFactory()
         self.loan_id = uuid4()
         self.bank_id = uuid4()
@@ -783,3 +948,52 @@ class TestViews(TestCase):
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertEqual(response.data, {'error': 'Error while paying loan'})
         mock_list_loan_balance.assert_called_once()
+
+    @patch('banking.api.views.create_bank', return_value={'foo': 'foo'})
+    def test_create_bank_success(self, mock_create_bank):
+        """Test successful bank creation"""
+        request = self.factory.post('/banks/create', data={
+            "name": 'foo',
+            "bic": 'foo',
+            "country": 'foo',
+            "interest_policy": 'foo',
+            "max_loan_amount": 1,
+        }, format='json')
+        force_authenticate(request, user=self.user)
+
+        response = create_bank_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data, {'foo': 'foo'})
+        mock_create_bank.assert_called_once()
+
+    def test_create_bank_invalid_payload(self):
+        """Test validation error returns 400"""
+        request = self.factory.post('/banks', data={
+            'name': 123,
+            'code': 'XYZ',
+        }, format='json')
+        force_authenticate(request, user=self.user)
+
+        response = create_bank_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('extra_forbidden', response.data)
+
+    @patch('banking.api.views.create_bank', side_effect=Exception('Unexpected error'))
+    def test_create_bank_internal_error(self, mock_create_bank):
+        """Test internal error during bank creation"""
+        request = self.factory.post('/banks', data={
+            "name": 'foo',
+            "bic": 'foo',
+            "country": 'foo',
+            "interest_policy": 'foo',
+            "max_loan_amount": 1,
+        }, format='json')
+        force_authenticate(request, user=self.user)
+
+        response = create_bank_route(request)
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.data, {'error': 'Error while creating bank'})
+        mock_create_bank.assert_called_once()

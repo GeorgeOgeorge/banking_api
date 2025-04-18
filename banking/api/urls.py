@@ -1,6 +1,7 @@
 from django.urls import path
 
 from banking.api.views import (
+    create_bank_route,
     create_loan_route,
     create_payment_route,
     list_loan_balance_route,
@@ -15,4 +16,6 @@ urlpatterns = [
 
     path('payments/create/', create_payment_route, name='create_payment'),
     path('payments/', list_payments_route, name='list_payments_by_loan'),
+
+    path('bank/create/', create_bank_route, name='create_bank'),
 ]

@@ -4,11 +4,14 @@ from drf_yasg.utils import swagger_auto_schema
 from pydantic_core import ValidationError
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from banking.api.utils.serializers import (
+    CreateBankModel,
+    CreateBankResponse,
+    CreateBankSerializer,
     CreateLoanRequestModel,
     CreateLoanRequestSerializer,
     CreateLoanResponseSerializer,
@@ -23,6 +26,7 @@ from banking.api.utils.serializers import (
     LoanBalanceResponse
 )
 from banking.api.utils.utils import (
+    create_bank,
     create_loan,
     create_payment,
     list_loan_balance,
@@ -209,3 +213,39 @@ def list_loan_balance_route(request: Request, loan_id: UUID) -> Response:
         return Response({'error': 'Error while paying loan'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(loan_balance, status=status.HTTP_200_OK)
+
+
+@swagger_auto_schema(
+    method='post',
+    request_body=CreateBankSerializer,
+    responses={
+        201: CreateBankResponse,
+        400: 'Occurs if payload is not in a valid schema.',
+        500: 'Occurs if an error occurs while creating bank.',
+    },
+    operation_description='List user loan balance',
+    security=[{'Bearer': []}],
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def create_bank_route(request: Request) -> Response:
+    '''
+    Creates a new bank.
+
+    Attributes:
+        request (Request): The HTTP request containing the bank creation data.
+
+    Returns:
+        Response: Created bank data.
+    '''
+    try:
+        bank_data = CreateBankModel(**request.data)
+    except ValidationError as payload_error:
+        return Response(payload_error.json(), status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        bank: dict = create_bank(request, bank_data)
+    except Exception as request_loan_error:
+        return Response({'error': 'Error while creating bank'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response(bank, status=status.HTTP_201_CREATED)

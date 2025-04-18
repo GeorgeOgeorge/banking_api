@@ -1,7 +1,7 @@
 import re
 from datetime import date
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -147,3 +147,30 @@ class LoanBalanceResponse(Serializer):
     request_date = DateField()
     total_paid = DecimalField(max_digits=10, decimal_places=2)
     remaining_debt = DecimalField(max_digits=10, decimal_places=2)
+
+# create_bank_route
+class CreateBankModel(BaseModel):
+    name: Annotated[str, Field(max_length=100)]
+    bic: Optional[Annotated[str, Field(max_length=20)]] = None
+    country: Annotated[str, Field(max_length=50)]
+    interest_policy: Optional[Annotated[str, Field(max_length=100)]] = None
+    max_loan_amount: Annotated[Decimal, Field(default=0, max_digits=12, decimal_places=2)]
+
+    model_config = {
+        'str_strip_whitespace': True,
+        'extra': 'forbid'
+    }
+
+
+class CreateBankSerializer(Serializer):
+    name = CharField(max_length=100)
+    bic = CharField(max_length=20, allow_blank=True, required=False)
+    country = CharField(max_length=50)
+    interest_policy = CharField(max_length=100, allow_blank=True, required=False)
+    max_loan_amount = DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal('0'), required=False
+    )
+
+
+class CreateBankResponse(CreateBankSerializer):
+    id = UUIDField()

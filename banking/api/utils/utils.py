@@ -4,6 +4,7 @@ from django.db import connection
 from rest_framework.request import Request
 
 from banking.api.utils.queries import (
+    CREATE_BANK_QUERY,
     CREATE_LOAN_QUERY,
     CREATE_PAYMENT_QUERY,
     LIST_LOAN_BALANCE_QUERY,
@@ -12,6 +13,7 @@ from banking.api.utils.queries import (
     list_payments_query
 )
 from banking.api.utils.serializers import (
+    CreateBankModel,
     CreateLoanRequestModel,
     CreatePaymentRequestModel,
     ListLoansQueryParams,
@@ -225,3 +227,40 @@ def list_loan_balance(request: Request, loan_id: UUID) -> dict:
         }
 
     return loan_balance
+
+
+def create_bank(
+    request: Request,
+    bank_data: CreateBankModel
+) -> dict:
+    '''
+    creates a new bank.
+
+    Attributes:
+        request (Request): Authenticated user context.
+        bank_data (CreateBankModel): Bank info to be created.
+
+    Returns:
+        dict: Created bank data.
+    '''
+    with connection.cursor() as cursor:
+        cursor.execute(CREATE_BANK_QUERY, {
+            'name': bank_data.name,
+            'bic': bank_data.bic,
+            'country': bank_data.country,
+            'interest_policy': bank_data.interest_policy,
+            'max_loan_amount': bank_data.max_loan_amount,
+            'created_by': request.user.id,
+        })
+        row_data = cursor.fetchone()
+
+        bank = {
+            'id': row_data[0],
+            'name': row_data[1],
+            'bic': row_data[2],
+            'country': row_data[3],
+            'interest_policy': row_data[4],
+            'max_loan_amount': row_data[5],
+        }
+
+    return bank

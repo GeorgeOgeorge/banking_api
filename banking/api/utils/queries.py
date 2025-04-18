@@ -80,6 +80,21 @@ LIST_LOAN_BALANCE_QUERY = '''
     limit 1;
 '''
 
+CREATE_BANK_QUERY = '''
+    insert into api_bank (id, name, bic, country, interest_policy, max_loan_amount, created_at, created_by_id)
+    values (
+        gen_random_uuid(),
+        %(name)s,
+        %(bic)s,
+        %(country)s,
+        %(interest_policy)s,
+        %(max_loan_amount)s,
+        now(),
+        %(created_by)s,
+    )
+    returning id, name, bic, country, interest_policy, max_loan_amount;
+'''
+
 
 def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
     query = '''
