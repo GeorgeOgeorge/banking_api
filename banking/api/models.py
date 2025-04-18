@@ -1,6 +1,6 @@
-from typing import Generator
 import uuid
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Generator
 
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.models import User
