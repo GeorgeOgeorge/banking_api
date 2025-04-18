@@ -32,7 +32,7 @@ class PaginationQueryParamsSerializer(Serializer):
 
 
 # create_loan_request
-class LoanInstallMent(Serializer):
+class LoanInstallment(Serializer):
     id = UUIDField()
     due_date = DateTimeField()
     amount = DecimalField(max_digits=12, decimal_places=2)
@@ -61,7 +61,7 @@ class CreateLoanResponse(Serializer):
     interest_rate = DecimalField(max_digits=5, decimal_places=2)
     request_date = DateTimeField()
     bank_name = CharField()
-    loan_installments = LoanInstallMent(many=True)
+    loan_installments = LoanInstallment(many=True)
 
 # list_loans_route
 class ListLoansQueryParamsSerializer(PaginationQueryParamsSerializer):
