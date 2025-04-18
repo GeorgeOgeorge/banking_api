@@ -68,7 +68,6 @@ class Loan(Model):
         ip_address (str): The IP address from which the request originated.
         request_date (datetime): The timestamp when the loan was requested.
         bank (Bank): Bank entity responsible for the loan.
-        client_name (str): Name of the client at the moment of request.
     '''
 
     id = UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -78,7 +77,6 @@ class Loan(Model):
     ip_address = GenericIPAddressField()
     request_date = DateTimeField(auto_now_add=True)
     bank = ForeignKey(Bank, on_delete=CASCADE, related_name='loans')
-    client_name = CharField(max_length=100)
 
 
 class Payment(Model):
