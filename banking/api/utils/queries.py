@@ -65,6 +65,7 @@ def list_loans_query(query_params: ListLoansQueryParams) -> str:
             l.paid,
             l.request_date,
             b.name as bank_name,
+            coalesce(sum(li.amount - li.paid_ammount), 0) as outstanding_balance,
             json_agg(json_build_object(
                 'id', li.id,
                 'due_date', li.due_date,
@@ -91,7 +92,7 @@ def list_loans_query(query_params: ListLoansQueryParams) -> str:
 
     query += '''
         group by
-            l.id, l.amount, l.interest_rate, l.paid, b.name
+            l.id, l.amount, l.interest_rate, l.paid, l.request_date, b.name
         order by l.request_date desc
         limit %(limit)s offset %(offset)s;
     '''

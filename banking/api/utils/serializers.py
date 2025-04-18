@@ -116,6 +116,7 @@ class ListLoansResponse(Serializer):
     interest_rate = DecimalField(max_digits=5, decimal_places=2, help_text='Interest rate applied to the loan.')
     bank_name = CharField(help_text='Name of the bank that granted the loan.')
     request_date = DateTimeField(help_text='Date and time when the loan was requested.')
+    outstanding_balance = DecimalField(max_digits=10, decimal_places=2, help_text='Amount to be paid on the loan.')
     loan_installments = LoanInstallmentResponse(many=True, help_text='List of loan installments.')
 
 

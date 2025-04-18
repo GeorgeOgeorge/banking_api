@@ -185,7 +185,8 @@ def list_loans(request: Request, query_params: ListLoansQueryParams) -> list[dic
                 'paid': row_data[3],
                 'request_date': row_data[4],
                 'bank_name': row_data[5],
-                'loan_installments': row_data[6],
+                'outstanding_balance': row_data[6],
+                'loan_installments': row_data[7],
             }
             for row_data in cursor
         ]
