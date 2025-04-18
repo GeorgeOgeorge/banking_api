@@ -5,30 +5,26 @@ from django.db import connection
 from rest_framework.request import Request
 
 from banking.api.models import Bank, Loan, Payment
-from banking.api.utils.exceptions import RowNotFound
-from banking.api.utils.queries import (
-    LIST_LOAN_BALANCE_QUERY,
-    LIST_LOAN_QUERY,
-    list_payments_query
-)
+from banking.api.utils.exceptions import FailedToCreateInstallments, RowNotFound
+from banking.api.utils.queries import LIST_LOAN_BALANCE_QUERY, LIST_LOAN_QUERY, list_payments_query
 from banking.api.utils.serializers import (
     CreateBankModel,
-    CreateLoanRequestModel,
+    CreateLoanModel,
     CreatePaymentRequestModel,
     ListLoansQueryParams,
-    ListPaymentsQueryParams
+    ListPaymentsQueryParams,
 )
 
 
 def get_user_ip_addres(request: Request) -> str:
-    """Retrieve the user's IP address from the request headers.
+    '''Retrieve the user's IP address from the request headers.
 
     Args:
         request (Request): The HTTP request object.
 
     Returns:
         str: The user's IP address.
-    """
+    '''
     ip_address = request.META.get(
         'HTTP_X_FORWARDED_FOR',
         request.META.get('REMOTE_ADDR')
@@ -37,12 +33,10 @@ def get_user_ip_addres(request: Request) -> str:
     return ip_address
 
 
-def create_loan(
-    request: Request,
-    loan_request: CreateLoanRequestModel
-) -> dict:
+def create_loan(request: Request, loan_request: CreateLoanModel) -> dict:
     '''
-    Creates a new loan entry in the database.
+    Creates a new loan entry in the database and generates the corresponding installments.
+    If the installments cannot be created, the loan is deleted to maintain data integrity.
 
     Args:
         request (Request): The incoming HTTP request.
@@ -50,6 +44,11 @@ def create_loan(
 
     Returns:
         dict: Dictionary containing the newly created loan's data.
+
+    Raises:
+        RowNotFound: If the specified bank does not exist.
+        ValueError: If the requested loan amount exceeds the bank's limit.
+        FailedToCreateInstallments: If an error occurs while creating the loan installments.
     '''
     bank = Bank.objects.filter(pk=loan_request.bank_id).first()
 
@@ -61,12 +60,19 @@ def create_loan(
     loan = Loan.objects.create(
         id=uuid4(),
         client=request.user,
+        bank=bank,
         amount=loan_request.amount,
         interest_rate=loan_request.interest_rate,
+        installments_qt=loan_request.installments_qt,
         ip_address=get_user_ip_addres(request),
         request_date=datetime.now(tz=timezone.utc),
-        bank=bank
     )
+
+    try:
+        loan.create_loan_installments()
+    except Exception as create_installments_error:
+        loan.delete()
+        raise FailedToCreateInstallments
 
     return {
         'id': str(loan.id),
@@ -77,7 +83,6 @@ def create_loan(
         'request_date': loan.request_date.isoformat(),
         'bank_id': str(loan.bank.id),
     }
-
 
 
 def list_loans(

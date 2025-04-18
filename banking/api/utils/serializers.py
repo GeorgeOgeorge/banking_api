@@ -14,7 +14,7 @@ from rest_framework.serializers import (
     IPAddressField,
     PrimaryKeyRelatedField,
     Serializer,
-    UUIDField
+    UUIDField,
 )
 
 
@@ -48,11 +48,11 @@ class CreateLoanRequestSerializer(Serializer):
     client_name = CharField(max_length=255)
 
 
-class CreateLoanRequestModel(BaseModel):
+class CreateLoanModel(BaseModel):
     amount: Annotated[Decimal, Field(gt=0, max_digits=10, decimal_places=2)]
     interest_rate: Annotated[Decimal, Field(ge=0, le=100, max_digits=5, decimal_places=2)]
+    installments_qt: Annotated[int, Field(gt=0)]
     bank_id: UUID
-    client_name: Annotated[str, Field(max_length=255, min_length=1)]
 
     model_config = {
         'str_strip_whitespace': True,

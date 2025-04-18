@@ -4,16 +4,16 @@ from drf_yasg.utils import swagger_auto_schema
 from pydantic_core import ValidationError
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from banking.api.utils.exceptions import RowNotFound
+from banking.api.utils.exceptions import FailedToCreateInstallments, RowNotFound
 from banking.api.utils.serializers import (
     CreateBankModel,
     CreateBankResponse,
     CreateBankSerializer,
-    CreateLoanRequestModel,
+    CreateLoanModel,
     CreateLoanRequestSerializer,
     CreateLoanResponseSerializer,
     CreatePaymentRequestModel,
@@ -24,7 +24,7 @@ from banking.api.utils.serializers import (
     ListLoansResponse,
     ListPaymentsQueryParams,
     ListPaymentsQueryParamsSerializer,
-    LoanBalanceResponse
+    LoanBalanceResponse,
 )
 from banking.api.utils.utils import (
     create_bank,
@@ -32,7 +32,7 @@ from banking.api.utils.utils import (
     create_payment,
     list_loan_balance,
     list_loans,
-    list_payments
+    list_payments,
 )
 
 
@@ -62,16 +62,21 @@ def create_loan_route(request: Request) -> Response:
         Response with loan data if successful or error message if failed.
     '''
     try:
-        loan_request = CreateLoanRequestModel(**request.data)
+        loan_request = CreateLoanModel(**request.data)
     except ValidationError as payload_error:
         return Response(payload_error.errors(), status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        loan: dict = create_loan(request, loan_request)
+        loan = create_loan(request, loan_request)
     except RowNotFound as bank_not_found:
         return Response({'error': str(bank_not_found)}, status=status.HTTP_404_NOT_FOUND)
     except ValueError as validation_error:
         return Response({'error': str(validation_error)}, status=status.HTTP_400_BAD_REQUEST)
+    except FailedToCreateInstallments as failed_to_crete_installments:
+        return Response(
+            {'error': 'Error while creating loan installments'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
     except Exception:
         return Response(
             {'error': 'Unexpected error while requesting loan.'},

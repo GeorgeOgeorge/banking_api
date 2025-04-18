@@ -6,7 +6,7 @@ from banking.api.views import (
     create_payment_route,
     list_loan_balance_route,
     list_loans_route,
-    list_payments_route
+    list_payments_route,
 )
 
 urlpatterns = [

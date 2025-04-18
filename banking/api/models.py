@@ -1,20 +1,20 @@
-from decimal import ROUND_HALF_UP, Decimal
-from dateutil.relativedelta import relativedelta
 import uuid
+from decimal import ROUND_HALF_UP, Decimal
 
+from dateutil.relativedelta import relativedelta
 from django.contrib.auth.models import User
 from django.db.models import (
     CASCADE,
+    BooleanField,
     CharField,
     DateTimeField,
     DecimalField,
     ForeignKey,
     GenericIPAddressField,
-    Model,
-    UUIDField,
     Index,
     IntegerField,
-    BooleanField,
+    Model,
+    UUIDField,
 )
 
 
