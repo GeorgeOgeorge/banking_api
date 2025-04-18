@@ -12,7 +12,7 @@ from banking.api.utils.exceptions import FailedToCreateInstallments, LoanAlready
 from banking.api.utils.serializers import (
     CreateBankModel,
     CreateBankResponse,
-    CreateBankSerializer,
+    CreateBankRequest,
     CreateLoanModel,
     CreateLoanRequest,
     CreateLoanResponse,
@@ -34,6 +34,42 @@ from banking.api.utils.utils import (
     list_payments,
     pay_loan,
 )
+
+
+@swagger_auto_schema(
+    method='post',
+    request_body=CreateBankRequest,
+    responses={
+        201: CreateBankResponse,
+        400: 'Occurs if payload is not in a valid schema.',
+        500: 'Occurs if an error occurs while creating bank.',
+    },
+    operation_description='Creates bank',
+    security=[{'Bearer': []}],
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def create_bank_route(request: Request) -> Response:
+    '''
+    Creates a new bank.
+
+    Attributes:
+        request (Request): The HTTP request containing the bank creation data.
+
+    Returns:
+        Response: Created bank data.
+    '''
+    try:
+        bank_data = CreateBankModel(**request.data)
+    except ValidationError as payload_error:
+        return Response(payload_error.json(), status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        bank: dict = create_bank(request, bank_data)
+    except Exception as request_loan_error:
+        return Response({'error': 'Error while creating bank'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response(bank, status=status.HTTP_201_CREATED)
 
 
 @swagger_auto_schema(
@@ -85,41 +121,6 @@ def create_loan_route(request: Request) -> Response:
 
     return Response(loan, status=status.HTTP_201_CREATED)
 
-@swagger_auto_schema(
-    method='get',
-    query_serializer=ListLoansQueryParamsSerializer,
-    responses={
-        200: ListLoansResponse(many=True),
-        400: 'Occurs if query params are not in a valid schema.',
-        500: 'Occurs if an error occurs while requesting loans.',
-    },
-    operation_description='Returns user requested loans',
-    security=[{'Bearer': []}],
-)
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def list_loans_route(request: Request) -> Response:
-    '''
-    Handles GET requests to retrieve a list of loans associated with the authenticated user.
-
-    Args:
-        request (Request): HTTP request object containing user credentials and query parameters.
-
-    Returns:
-        Response with a list of user's requested loans
-    '''
-    try:
-        query_params = ListLoansQueryParams(**request.query_params)
-    except ValidationError as query_params_error:
-        return Response(query_params_error.json(), status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        loans = list_loans(request, query_params)
-    except Exception:
-        return Response({'error': 'Error fetching user loans'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    return Response(loans, status=status.HTTP_200_OK)
-
 
 @swagger_auto_schema(
     method='post',
@@ -160,6 +161,42 @@ def create_payment_route(request: Request) -> Response:
         return Response({'error': 'Error while paying loan'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(payment, status=status.HTTP_201_CREATED)
+
+
+@swagger_auto_schema(
+    method='get',
+    query_serializer=ListLoansQueryParamsSerializer,
+    responses={
+        200: ListLoansResponse(many=True),
+        400: 'Occurs if query params are not in a valid schema.',
+        500: 'Occurs if an error occurs while requesting loans.',
+    },
+    operation_description='Returns user requested loans',
+    security=[{'Bearer': []}],
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_loans_route(request: Request) -> Response:
+    '''
+    Handles GET requests to retrieve a list of loans associated with the authenticated user.
+
+    Args:
+        request (Request): HTTP request object containing user credentials and query parameters.
+
+    Returns:
+        Response with a list of user's requested loans
+    '''
+    try:
+        query_params = ListLoansQueryParams(**request.query_params)
+    except ValidationError as query_params_error:
+        return Response(query_params_error.json(), status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        loans = list_loans(request, query_params)
+    except Exception:
+        return Response({'error': 'Error fetching user loans'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response(loans, status=status.HTTP_200_OK)
 
 
 @swagger_auto_schema(
@@ -229,39 +266,3 @@ def list_loan_balance_route(request: Request, loan_id: UUID) -> Response:
         return Response({'error': 'Error while paying loan'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(loan_balance, status=status.HTTP_200_OK)
-
-
-@swagger_auto_schema(
-    method='post',
-    request_body=CreateBankSerializer,
-    responses={
-        201: CreateBankResponse,
-        400: 'Occurs if payload is not in a valid schema.',
-        500: 'Occurs if an error occurs while creating bank.',
-    },
-    operation_description='List user loan balance',
-    security=[{'Bearer': []}],
-)
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def create_bank_route(request: Request) -> Response:
-    '''
-    Creates a new bank.
-
-    Attributes:
-        request (Request): The HTTP request containing the bank creation data.
-
-    Returns:
-        Response: Created bank data.
-    '''
-    try:
-        bank_data = CreateBankModel(**request.data)
-    except ValidationError as payload_error:
-        return Response(payload_error.json(), status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        bank: dict = create_bank(request, bank_data)
-    except Exception as request_loan_error:
-        return Response({'error': 'Error while creating bank'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    return Response(bank, status=status.HTTP_201_CREATED)

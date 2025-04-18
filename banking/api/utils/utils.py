@@ -33,6 +33,39 @@ def get_user_ip_address(request: Request) -> str:
     return ip_address
 
 
+def create_bank(
+    request: Request,
+    bank_data: CreateBankModel
+) -> dict:
+    '''
+    Creates a new bank.
+
+    Args:
+        request (Request): Authenticated user context.
+        bank_data (CreateBankModel): Bank info to be created.
+
+    Returns:
+        dict: Created bank data.
+    '''
+    bank = Bank.objects.create(
+        name=bank_data.name,
+        bic=bank_data.bic,
+        country=bank_data.country,
+        interest_policy=bank_data.interest_policy,
+        max_loan_amount=bank_data.max_loan_amount,
+        created_by=request.user,
+    )
+
+    return {
+        'id': str(bank.id),
+        'name': bank.name,
+        'bic': bank.bic,
+        'country': bank.country,
+        'interest_policy': bank.interest_policy,
+        'max_loan_amount': str(bank.max_loan_amount),
+    }
+
+
 def create_loan(request: Request, loan_request: CreateLoanModel) -> dict:
     '''
     Creates a new loan entry in the database and generates the corresponding installments.
@@ -93,6 +126,38 @@ def create_loan(request: Request, loan_request: CreateLoanModel) -> dict:
     return loan_data
 
 
+def pay_loan(request: Request, payment_request: CreatePaymentModel) -> dict:
+    '''
+    Creates a loan payment.
+
+    Args:
+        request (Request): Request containing the authenticated user.
+        payment_request (CreatePaymentModel): Payment input data.
+
+    Raises:
+        RowNotFound: If the user does not own the loan.
+        ValueError: If the loan is already paid or other validation fails.
+
+    Returns:
+        dict: Created payment data.
+    '''
+    loan = Loan.objects.filter(id=payment_request.loan_id, client=request.user).first()
+
+    if loan is None:
+        raise RowNotFound(f'User {request.user.id} is not owner of loan {payment_request.loan_id}')
+    if loan.paid:
+        raise LoanAlreadyPaid('Loan has already been paid')
+
+    payment, change = loan.pay(payment_request.amount)
+
+    return {
+        'id': str(payment.id),
+        'payment_date': payment.payment_date.isoformat(),
+        'amount': payment.amount,
+        'change': change,
+    }
+
+
 def list_loans(
     request: Request,
     query_params: ListLoansQueryParams
@@ -126,38 +191,6 @@ def list_loans(
         ]
 
     return loans
-
-
-def pay_loan(request: Request, payment_request: CreatePaymentModel) -> dict:
-    '''
-    Creates a loan payment.
-
-    Args:
-        request (Request): Request containing the authenticated user.
-        payment_request (CreatePaymentModel): Payment input data.
-
-    Raises:
-        RowNotFound: If the user does not own the loan.
-        ValueError: If the loan is already paid or other validation fails.
-
-    Returns:
-        dict: Created payment data.
-    '''
-    loan = Loan.objects.filter(id=payment_request.loan_id, client=request.user).first()
-
-    if loan is None:
-        raise RowNotFound(f'User {request.user.id} is not owner of loan {payment_request.loan_id}')
-    if loan.paid:
-        raise LoanAlreadyPaid('Loan has already been paid')
-
-    payment, change = loan.pay(payment_request.amount)
-
-    return {
-        'id': str(payment.id),
-        'payment_date': payment.payment_date.isoformat(),
-        'amount': payment.amount,
-        'change': change,
-    }
 
 
 def list_payments(
@@ -232,36 +265,3 @@ def list_loan_balance(request: Request, loan_id: UUID) -> dict:
         }
 
     return loan_balance
-
-
-def create_bank(
-    request: Request,
-    bank_data: CreateBankModel
-) -> dict:
-    '''
-    Creates a new bank.
-
-    Args:
-        request (Request): Authenticated user context.
-        bank_data (CreateBankModel): Bank info to be created.
-
-    Returns:
-        dict: Created bank data.
-    '''
-    bank = Bank.objects.create(
-        name=bank_data.name,
-        bic=bank_data.bic,
-        country=bank_data.country,
-        interest_policy=bank_data.interest_policy,
-        max_loan_amount=bank_data.max_loan_amount,
-        created_by=request.user,
-    )
-
-    return {
-        'id': str(bank.id),
-        'name': bank.name,
-        'bic': bank.bic,
-        'country': bank.country,
-        'interest_policy': bank.interest_policy,
-        'max_loan_amount': str(bank.max_loan_amount),
-    }

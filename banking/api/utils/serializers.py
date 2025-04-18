@@ -140,6 +140,7 @@ class LoanBalanceResponse(Serializer):
     total_paid = DecimalField(max_digits=10, decimal_places=2)
     remaining_debt = DecimalField(max_digits=10, decimal_places=2)
 
+
 ####################################### create_bank_route #######################################
 class CreateBankModel(BaseModel):
     name: Annotated[str, Field(max_length=100)]
@@ -153,16 +154,12 @@ class CreateBankModel(BaseModel):
         'extra': 'forbid'
     }
 
+class CreateBankRequest(Serializer):
+    name = CharField(max_length=100, help_text="Name of the bank.")
+    bic = CharField(max_length=20, allow_blank=True, required=False, help_text="Bank Identifier Code (optional).")
+    country = CharField(max_length=50, help_text="Country where the bank operates.")
+    interest_policy = CharField(max_length=100, allow_blank=True, required=False, help_text="Description of the bank's interest policy (optional).")
+    max_loan_amount = DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'), required=False, help_text="Maximum loan amount the bank allows. Defaults to 0 if not provided.")
 
-class CreateBankSerializer(Serializer):
-    name = CharField(max_length=100)
-    bic = CharField(max_length=20, allow_blank=True, required=False)
-    country = CharField(max_length=50)
-    interest_policy = CharField(max_length=100, allow_blank=True, required=False)
-    max_loan_amount = DecimalField(
-        max_digits=12, decimal_places=2, default=Decimal('0'), required=False
-    )
-
-
-class CreateBankResponse(CreateBankSerializer):
-    id = UUIDField()
+class CreateBankResponse(CreateBankRequest):
+    id = UUIDField(help_text="Unique identifier of the created bank.")
