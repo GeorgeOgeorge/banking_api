@@ -33,20 +33,19 @@ class PaginationQueryParamsSerializer(Serializer):
 
 ####################################### create_loan_request #######################################
 class LoanInstallment(Serializer):
-    id = UUIDField()
-    due_date = DateTimeField()
-    amount = DecimalField(max_digits=12, decimal_places=2)
+    id = UUIDField(help_text="Unique identifier for the installment.")
+    due_date = DateTimeField(help_text="Due date for the installment.")
+    amount = DecimalField(max_digits=12, decimal_places=2, help_text="Amount to be paid for this installment.")
 
 class CreateLoanRequest(Serializer):
-    amount = DecimalField(max_digits=10, decimal_places=2)
-    interest_rate = DecimalField(max_digits=5, decimal_places=2)
-    installments_qt = IntegerField(min_value=1)
-    bank_id = UUIDField()
-
+    amount = DecimalField(max_digits=12, decimal_places=2, help_text="The principal loan amount requested.")
+    interest_rate = DecimalField(max_digits=5, decimal_places=2, help_text="Monthly interest rate (%) to apply to the loan.")
+    installments_qt = IntegerField(min_value=1, help_text="Number of monthly installments for the loan.")
+    bank_id = UUIDField(help_text="Identifier of the bank where the loan is being requested.")
 
 class CreateLoanModel(BaseModel):
-    amount: Annotated[Decimal, Field(gt=0, max_digits=10, decimal_places=2)]
-    interest_rate: Annotated[Decimal, Field(ge=0, le=100, max_digits=5, decimal_places=2)]
+    amount: Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2)]
+    interest_rate: Annotated[Decimal, Field(gt=0, max_digits=5, decimal_places=2)]
     installments_qt: Annotated[int, Field(gt=0)]
     bank_id: UUID
 
@@ -56,12 +55,12 @@ class CreateLoanModel(BaseModel):
     }
 
 class CreateLoanResponse(Serializer):
-    id = UUIDField()
-    amount = DecimalField(max_digits=10, decimal_places=2)
-    interest_rate = DecimalField(max_digits=5, decimal_places=2)
-    request_date = DateTimeField()
-    bank_name = CharField()
-    loan_installments = LoanInstallment(many=True)
+    id = UUIDField(help_text="Unique identifier for the created loan.")
+    amount = DecimalField(max_digits=12, decimal_places=2, help_text="Loan amount that was approved.")
+    interest_rate = DecimalField(max_digits=5, decimal_places=2, help_text="Interest rate (%) applied to the loan.")
+    request_date = DateTimeField(help_text="Timestamp when the loan was requested.")
+    bank_name = CharField(help_text="Name of the bank that issued the loan.")
+    loan_installments = LoanInstallment(many=True, help_text="List of generated loan installments.")
 
 ####################################### list_loans_route #######################################
 class ListLoansQueryParamsSerializer(PaginationQueryParamsSerializer):
