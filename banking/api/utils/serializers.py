@@ -1,5 +1,5 @@
 import re
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Annotated, Optional
 from uuid import UUID
@@ -103,7 +103,6 @@ class ListLoansQueryParams(PaginationQueryParams):
 
     model_config = {
         'str_strip_whitespace': True,
-        'extra': 'forbid'
     }
 
 class LoanInstallmentResponse(Serializer):
@@ -128,7 +127,6 @@ class ListPaymentsQueryParams(PaginationQueryParams):
 
     model_config = {
         'str_strip_whitespace': True,
-        'extra': 'forbid'
     }
 
     @field_validator('payment_date', mode='before')
