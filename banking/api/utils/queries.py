@@ -1,82 +1,71 @@
-from banking.api.utils.serializers import ListPaymentsQueryParams
+from banking.api.utils.serializers import ListLoansQueryParams, ListPaymentsQueryParams
 
-CREATE_LOAN_QUERY = '''
-    INSERT INTO api_loan (id, client_id, amount, interest_rate, bank, client_name, ip_address, request_date)
-    VALUES (
-        gen_random_uuid(),
-        %(client_id)s,
-        %(amount)s,
-        %(interest_rate)s,
-        %(bank)s,
-        %(client_name)s,
-        %(ip_address)s,
-        NOW()
-    )
-    RETURNING id, client_id, amount, interest_rate, bank, client_name, ip_address, request_date
-'''
-
-LIST_LOAN_QUERY = '''
+LOAN_STATISTICS_QUERY = """
     select
-        al.id,
-        al.amount,
-        al.interest_rate,
-        al.request_date,
-        al.bank
-    from
-        api_loan al
-    join auth_user au on al.client_id = au.id
-    where au.id = %(client_id)s
-    order by request_date desc
-    limit %(limit)s offset %(offset)s;
-'''
+        l.id,
+        l.amount,
+        l.interest_rate,
+        l.paid,
+        b.name as bank_name,
+        count(li.id) as installments_count,
+        count(*) filter (where li.status = 'paid') as paid_installments,
+        count(*) filter (where li.status = 'pending') as pending_installments,
+        count(*) filter (where li.status = 'overdue') as overdue_installments,
+        coalesce(sum(li.paid_ammount), 0) as total_paid,
+        coalesce(sum(li.amount - li.paid_ammount), 0) as outstanding_balance,
+        coalesce(sum(case when li.status = 'pending' then li.amount - li.paid_ammount else 0 end), 0) as total_pending,
+        coalesce(sum(case when li.status = 'overdue' then li.amount - li.paid_ammount else 0 end), 0) as total_overdue
+    from api_loan l
+    join api_bank b on l.bank_id = b.id
+    left join api_loaninstallment li on li.loan_id = l.id
+    where l.id = %(loan_id)s
+        and l.client_id = %(client_id)s
+    group by l.id, l.amount, l.interest_rate, l.paid, b.name;
+"""
 
-USER_OWNS_LOAN = '''
-    select
-        al.id
-    from
-        api_loan al
-    join auth_user au on
-        al.client_id = au.id
-    where
-        au.id = %(client_id)s
-        and al.id = %(loan_id)s
-    limit 1;
-'''
 
-CREATE_PAYMENT_QUERY = '''
-    insert into api_payment (id, payment_date, amount, loan_id)
-    values(
-        gen_random_uuid(),
-        now(),
-        %(amount)s,
-        %(loan_id)s
-    )
-    returning id, payment_date, amount, loan_id;
-'''
+def list_loans_query(query_params: ListLoansQueryParams) -> str:
+    query = """
+        select
+            l.id,
+            l.amount,
+            l.interest_rate,
+            l.paid,
+            l.request_date,
+            b.name as bank_name,
+            coalesce(sum(li.amount - li.paid_ammount), 0) as outstanding_balance,
+            json_agg(json_build_object(
+                'id', li.id,
+                'due_date', li.due_date,
+                'amount', li.amount,
+                'paid_ammount', li.paid_ammount,
+                'status', li.status
+            ) order by li.due_date) as loan_installments
+        from api_loan l
+        join api_bank b on l.bank_id = b.id
+        left join api_loaninstallment li on li.loan_id = l.id
+        where l.client_id = %(client_id)s
+    """
 
-LIST_LOAN_BALANCE_QUERY = '''
-    select
-        al.id,
-        al.bank,
-        al.amount,
-        al.interest_rate,
-        al.request_date,
-        coalesce(sum(p.amount), 0) total_paid,
-        round(
-            (
-                al.amount +
-                (al.amount * al.interest_rate * greatest(date_part('month', current_date - al.request_date), 0))
-                - coalesce(sum(p.amount), 0)
-            )::numeric,
-            2
-        ) as remaining_debt
-    from api_loan al
-    left join api_payment p on p.loan_id = al.id
-    where al.client_id = %(client_id)s
-        and al.id = %(loan_id)s
-    group by al.id
-    limit 1;
-'''
+    if query_params.paid is not None:
+        query += ' and l.paid = %(paid)s'
+    if query_params.interest_rate is not None:
+        query += ' and l.interest_rate = %(interest_rate)s'
+    if query_params.amount is not None:
+        query += ' and l.amount = %(amount)s'
+    if query_params.bank_name:
+        query += ' and b.name = %(bank_name)s'
+    if query_params.request_date:
+        query += ' and date(l.request_date) = %(request_date)s'
+
+    query += '''
+        group by
+            l.id, l.amount, l.interest_rate, l.paid, l.request_date, b.name
+        order by l.request_date desc
+        limit %(limit)s offset %(offset)s;
+    '''
+
+    return query
 
 
 def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
@@ -85,13 +74,12 @@ def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
             ap.id,
             ap.payment_date,
             ap.amount,
-            ap.loan_id
-        from
-            api_payment ap
-        join api_loan al on
-            al.id = ap.loan_id
-        where
-            al.client_id = %(client_id)s
+            ap.loan_id,
+            ab.name as bank_name
+        from api_payment ap
+        join api_loan al on al.id = ap.loan_id
+        join api_bank ab on ab.id = al.bank_id
+        where al.client_id = %(client_id)s
     '''
 
     if query_params.payment_id:

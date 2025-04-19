@@ -1,33 +1,30 @@
-from uuid import UUID
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 
 from django.db import connection
 from rest_framework.request import Request
 
-from banking.api.utils.queries import (
-    CREATE_LOAN_QUERY,
-    CREATE_PAYMENT_QUERY,
-    LIST_LOAN_BALANCE_QUERY,
-    LIST_LOAN_QUERY,
-    USER_OWNS_LOAN,
-    list_payments_query
-)
+from banking.api.models import Bank, Loan
+from banking.api.utils.exceptions import FailedToCreateInstallments, LoanAlreadyPaid, RowNotFound
+from banking.api.utils.queries import LOAN_STATISTICS_QUERY, list_loans_query, list_payments_query
 from banking.api.utils.serializers import (
-    CreateLoanRequestModel,
-    CreatePaymentRequestModel,
+    CreateBankModel,
+    CreateLoanModel,
+    CreatePaymentModel,
     ListLoansQueryParams,
-    ListPaymentsQueryParams
+    ListPaymentsQueryParams,
 )
 
 
-def get_user_ip_addres(request: Request) -> str:
-    """Retrieve the user's IP address from the request headers.
+def get_user_ip_address(request: Request) -> str:
+    '''Retrieve the user's IP address from the request headers.
 
     Args:
         request (Request): The HTTP request object.
 
     Returns:
         str: The user's IP address.
-    """
+    '''
     ip_address = request.META.get(
         'HTTP_X_FORWARDED_FOR',
         request.META.get('REMOTE_ADDR')
@@ -36,49 +33,129 @@ def get_user_ip_addres(request: Request) -> str:
     return ip_address
 
 
-def create_loan(
-    request: Request,
-    loan_request: CreateLoanRequestModel
-) -> dict:
+def create_bank(request: Request, bank_data: CreateBankModel) -> dict:
     '''
-    Creates a new loan entry in the database.
+    Creates a new bank.
 
     Args:
-        request (Request): The incoming HTTP request, used to get the authenticated user and IP address.
-        loan_request (CreateLoanRequestModel): Validated request data with loan details.
+        request (Request): Authenticated user context.
+        bank_data (CreateBankModel): Bank info to be created.
+
+    Returns:
+        dict: Created bank data.
+    '''
+    bank = Bank.objects.create(
+        name=bank_data.name,
+        bic=bank_data.bic,
+        country=bank_data.country,
+        interest_policy=bank_data.interest_policy,
+        max_loan_amount=bank_data.max_loan_amount,
+        created_by=request.user,
+    )
+
+    return {
+        'id': str(bank.id),
+        'name': bank.name,
+        'bic': bank.bic,
+        'country': bank.country,
+        'interest_policy': bank.interest_policy,
+        'max_loan_amount': str(bank.max_loan_amount),
+    }
+
+
+def create_loan(request: Request, loan_request: CreateLoanModel) -> dict:
+    '''
+    Creates a new loan entry in the database and generates the corresponding installments.
+    If the installments cannot be created, the loan is deleted to maintain data integrity.
+
+    Args:
+        request (Request): The incoming HTTP request.
+        loan_request (CreateLoanModel): Validated request data with loan details.
 
     Returns:
         dict: Dictionary containing the newly created loan's data.
+
+    Raises:
+        RowNotFound: If the specified bank does not exist.
+        ValueError: If the requested loan amount exceeds the bank's limit.
+        FailedToCreateInstallments: If an error occurs while creating the loan installments.
     '''
-    with connection.cursor() as cursor:
-        cursor.execute(CREATE_LOAN_QUERY, {
-            'client_id': request.user.id,
-            'amount': loan_request.amount,
-            'interest_rate': loan_request.interest_rate,
-            'bank': loan_request.bank,
-            'client_name': loan_request.client_name,
-            'ip_address': get_user_ip_addres(request)
-        })
-        row_data = cursor.fetchone()
+    bank = Bank.objects.filter(pk=loan_request.bank_id).first()
 
-        loan = {
-            'id': row_data[0],
-            'client_id': row_data[1],
-            'amount': row_data[2],
-            'interest_rate': row_data[3],
-            'bank': row_data[4],
-            'client_name': row_data[5],
-            'ip_address': row_data[6],
-            'request_date': row_data[7],
-        }
+    if bank is None:
+        raise RowNotFound('Bank not found.')
+    if loan_request.amount > bank.max_loan_amount:
+        raise ValueError('Requested amount exceeds bank limit.')
 
-    return loan
+    loan = Loan.objects.create(
+        id=uuid4(),
+        client=request.user,
+        bank=bank,
+        amount=loan_request.amount,
+        interest_rate=loan_request.interest_rate,
+        installments_qt=loan_request.installments_qt,
+        ip_address=get_user_ip_address(request),
+        request_date=datetime.now(tz=timezone.utc),
+    )
+
+    try:
+        loan_installments = [
+            {
+                "id": loan_installment.id,
+                "due_date": loan_installment.due_date,
+                "amount": loan_installment.amount,
+            }
+            for loan_installment in loan.generate_loan_installments()
+        ]
+    except Exception as create_installments_error:
+        loan.delete()
+        raise FailedToCreateInstallments
+
+    loan_data = {
+        'id': str(loan.id),
+        'amount': loan.amount,
+        'interest_rate': loan.interest_rate,
+        'request_date': loan.request_date.isoformat(),
+        'bank_name': loan.bank.name,
+        'loan_installments': loan_installments,
+    }
+
+    return loan_data
 
 
-def list_loans(
-    request: Request,
-    query_params: ListLoansQueryParams
-) -> list[dict]:
+def pay_loan(request: Request, payment_request: CreatePaymentModel) -> dict:
+    '''
+    Creates a loan payment.
+
+    Args:
+        request (Request): Request containing the authenticated user.
+        payment_request (CreatePaymentModel): Payment input data.
+
+    Raises:
+        RowNotFound: If the user does not own the loan.
+        ValueError: If the loan is already paid or other validation fails.
+
+    Returns:
+        dict: Created payment data.
+    '''
+    loan = Loan.objects.filter(id=payment_request.loan_id, client=request.user).first()
+
+    if loan is None:
+        raise RowNotFound(f'User {request.user.id} is not owner of loan {payment_request.loan_id}')
+    if loan.paid:
+        raise LoanAlreadyPaid('Loan has already been paid')
+
+    payment, change = loan.pay(payment_request.amount)
+
+    return {
+        'id': str(payment.id),
+        'payment_date': payment.payment_date.isoformat(),
+        'amount': payment.amount,
+        'change': change,
+    }
+
+
+def list_loans(request: Request, query_params: ListLoansQueryParams) -> list[dict]:
     '''
     Returns a paginated list of loans for the authenticated user.
 
@@ -89,8 +166,12 @@ def list_loans(
     Returns:
         list[dict]: List of loans.
     '''
+    query = list_loans_query(query_params)
+    filters = query_params.model_dump(exclude_none=True)
+
     with connection.cursor() as cursor:
-        cursor.execute(LIST_LOAN_QUERY, {
+        cursor.execute(query, {
+            **filters,
             'client_id': request.user.id,
             'limit': query_params.limit,
             'offset': query_params.offset,
@@ -101,8 +182,11 @@ def list_loans(
                 'id': row_data[0],
                 'amount': row_data[1],
                 'interest_rate': row_data[2],
-                'bank': row_data[3],
+                'paid': row_data[3],
                 'request_date': row_data[4],
+                'bank_name': row_data[5],
+                'outstanding_balance': row_data[6],
+                'loan_installments': row_data[7],
             }
             for row_data in cursor
         ]
@@ -110,53 +194,49 @@ def list_loans(
     return loans
 
 
-def create_payment(
-    request: Request,
-    payment_request: CreatePaymentRequestModel
-) -> dict:
+def list_loan_balance(request: Request, loan_id: UUID) -> dict:
     '''
-    Creates a loan payment.
+    Retrieves the remaining balance of a loan for the authenticated user.
 
     Args:
-        request (Request): Request containing the authenticated user.
-        payment_request (CreatePaymentRequestModel): Payment input data.
+        request (Request): The HTTP request containing the authenticated user.
+        loan_id (UUID): The ID of the loan to fetch the balance for.
 
     Raises:
-        ValueError: If the user does not own the loan.
+        ValueError: If the loan does not belong to the authenticated user.
 
     Returns:
-        dict: Created payment data.
+        dict: A dictionary containing loan and remaining balance information.
     '''
     with connection.cursor() as cursor:
-        cursor.execute(USER_OWNS_LOAN, {
+        cursor.execute(LOAN_STATISTICS_QUERY, {
             'client_id': request.user.id,
-            'loan_id': payment_request.loan_id,
-        })
-
-        user_owns_loan = cursor.fetchone()
-        if not user_owns_loan:
-            raise ValueError(f'User {request.user.id} is not owner of loan {payment_request.loan_id}')
-
-        cursor.execute(CREATE_PAYMENT_QUERY, {
-            'amount': payment_request.amount,
-            'loan_id': payment_request.loan_id,
+            'loan_id': loan_id,
         })
         row_data = cursor.fetchone()
+        if not row_data:
+            raise ValueError(f'User {request.user.id} is not owner of loan {loan_id}')
 
-        payment = {
+        loan_balance = {
             'id': row_data[0],
-            'payment_date': row_data[1],
-            'amount': row_data[2],
-            'loan_id': row_data[3]
+            'amount': row_data[1],
+            'interest_rate': row_data[2],
+            'paid': row_data[3],
+            'bank_name': row_data[4],
+            'installments_count': row_data[5],
+            'paid_installments': row_data[6],
+            'pending_installments': row_data[7],
+            'overdue_installments': row_data[8],
+            'total_paid': row_data[9],
+            'outstanding_balance': row_data[10],
+            'total_pending': row_data[11],
+            'total_overdue': row_data[12],
         }
 
-    return payment
+    return loan_balance
 
 
-def list_payments(
-    request: Request,
-    query_params: ListPaymentsQueryParams
-) -> list[dict]:
+def list_payments(request: Request, query_params: ListPaymentsQueryParams) -> list[dict]:
     '''
     Retrieves a filtered and paginated list of payments for the authenticated user.
 
@@ -184,44 +264,9 @@ def list_payments(
                 'payment_date': row_data[1],
                 'amount': row_data[2],
                 'loan_id': row_data[3],
+                'bank_name': row_data[4],
             }
             for row_data in cursor
         ]
 
     return payments
-
-
-def list_loan_balance(request: Request, loan_id: UUID) -> dict:
-    '''
-    Retrieves the remaining balance of a loan for the authenticated user.
-
-    Args:
-        request (Request): The HTTP request containing the authenticated user.
-        loan_id (UUID): The ID of the loan to fetch the balance for.
-
-    Raises:
-        ValueError: If the loan does not belong to the authenticated user.
-
-    Returns:
-        dict: A dictionary containing loan and remaining balance information.
-    '''
-    with connection.cursor() as cursor:
-        cursor.execute(LIST_LOAN_BALANCE_QUERY, {
-            'client_id': request.user.id,
-            'loan_id': loan_id,
-        })
-        row_data = cursor.fetchone()
-        if not row_data:
-            raise ValueError(f'User {request.user.id} is not owner of loan {loan_id}')
-
-        loan_balance = {
-            'id': row_data[0],
-            'bank': row_data[1],
-            'amount': row_data[2],
-            'interest_rate': row_data[3],
-            'request_date': row_data[4],
-            'total_paid': row_data[5],
-            'remaining_debt': row_data[6],
-        }
-
-    return loan_balance
