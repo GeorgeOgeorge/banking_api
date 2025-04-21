@@ -67,7 +67,7 @@ def create_bank_route(request: Request) -> Response:
 
     try:
         bank: dict = create_bank(request, bank_data)
-    except Exception as request_loan_error:
+    except Exception:
         return Response({'error': 'Error while creating bank'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(bank, status=status.HTTP_201_CREATED)
@@ -109,7 +109,7 @@ def create_loan_route(request: Request) -> Response:
         return Response({'error': str(bank_not_found)}, status=status.HTTP_404_NOT_FOUND)
     except ValueError as validation_error:
         return Response({'error': str(validation_error)}, status=status.HTTP_400_BAD_REQUEST)
-    except FailedToCreateInstallments as failed_to_crete_installments:
+    except FailedToCreateInstallments:
         return Response(
             {'error': 'Error while creating loan installments'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -156,9 +156,9 @@ def create_payment_route(request: Request) -> Response:
         payment = pay_loan(request, payment_request)
     except RowNotFound as loan_not_found:
         return Response({'error': str(loan_not_found)}, status=status.HTTP_404_NOT_FOUND)
-    except LoanAlreadyPaid as loan_already_paid:
+    except LoanAlreadyPaid:
         return Response({'error': 'Loan has already been paid'}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as loan_payment_error:
+    except Exception:
         return Response({'error': 'Error while paying loan'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(payment, status=status.HTTP_201_CREATED)
@@ -227,7 +227,7 @@ def loan_statistics_route(request: Request, loan_id: UUID) -> Response:
         loan_balance = list_loan_balance(request, loan_id)
     except ValueError as user_doesnt_own_loan:
         return Response({'error': str(user_doesnt_own_loan)}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as list_loan_balance_error:
+    except Exception:
         return Response({'error': 'Error while paying loan'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(loan_balance, status=status.HTTP_200_OK)
@@ -263,7 +263,7 @@ def list_payments_route(request: Request) -> Response:
 
     try:
         payments = list_payments(request, query_params)
-    except Exception as list_payments_error:
+    except Exception:
         return Response({'error': 'Error fetching user payments'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(payments, status=status.HTTP_200_OK)

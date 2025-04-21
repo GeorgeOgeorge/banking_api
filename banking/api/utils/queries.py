@@ -74,10 +74,12 @@ def list_payments_query(query_params: ListPaymentsQueryParams) -> str:
             ap.id,
             ap.payment_date,
             ap.amount,
-            ap.loan_id,
-            ab.name as bank_name
+            ap.loan_installment_id,
+            ab.name as bank_name,
+            al.id as loan_id
         from api_payment ap
-        join api_loan al on al.id = ap.loan_id
+        join api_loaninstallment ali on ali.id = ap.loan_installment_id
+        join api_loan al on al.id = ali.loan_id
         join api_bank ab on ab.id = al.bank_id
         where al.client_id = %(client_id)s
     '''

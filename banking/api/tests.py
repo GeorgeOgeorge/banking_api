@@ -164,7 +164,8 @@ class TestResponseSerializers(TestCase):
             "amount": Decimal("150.00"),
             "change": Decimal("0.00"),
             "loan_id": VALID_UUID,
-            "bank_name": "Bank Z"
+            "bank_name": "Bank Z",
+            "loan_installment_id": VALID_UUID,
         }
         serializer = ListPaymentsResponse(data=data)
         assert serializer.is_valid()
@@ -553,7 +554,7 @@ class TestListPayments(TestCase):
         query_params = ListPaymentsQueryParams(limit=10, offset=0)
 
         MockCursor.return_value.__enter__.return_value.__iter__.return_value = iter([
-            (uuid4(), datetime.now(), 1000, uuid4(), "Bank A")
+            (uuid4(), datetime.now(), 1000, uuid4(), "Bank A", uuid4())
         ])
 
         response = list_payments(mock_request, query_params)

@@ -107,7 +107,7 @@ def create_loan(request: Request, loan_request: CreateLoanModel) -> dict:
             }
             for loan_installment in loan.generate_loan_installments()
         ]
-    except Exception as create_installments_error:
+    except Exception:
         loan.delete()
         raise FailedToCreateInstallments
 
@@ -263,8 +263,9 @@ def list_payments(request: Request, query_params: ListPaymentsQueryParams) -> li
                 'id': row_data[0],
                 'payment_date': row_data[1],
                 'amount': row_data[2],
-                'loan_id': row_data[3],
+                'loan_installment_id': row_data[3],
                 'bank_name': row_data[4],
+                'loan_id': row_data[5],
             }
             for row_data in cursor
         ]
