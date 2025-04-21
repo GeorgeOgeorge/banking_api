@@ -1,11 +1,11 @@
 import os
-
 import django
 from decouple import config
-from django.contrib.auth.models import User
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "banking.settings")
 django.setup()
+
+from django.contrib.auth.models import User
 
 
 def initialize_database():
@@ -20,7 +20,6 @@ def initialize_database():
         email=config('ADMIN_EMAIL'),
         password=config('ADMIN_PASSWORD')
     )
-
 
 if __name__ == "__main__":
     initialize_database()

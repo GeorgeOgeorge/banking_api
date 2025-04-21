@@ -22,5 +22,6 @@ urlpatterns = [
     path('auth/login/', TokenObtainPairView.as_view(permission_classes=[AllowAny]), name='token_obtain_pair'),
     path('auth/refresh/', TokenRefreshView.as_view(permission_classes=[AllowAny]), name='token_refresh'),
     path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('', include('django_prometheus.urls')),
     path('banking/', include('banking.api.urls')),
 ]

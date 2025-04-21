@@ -19,9 +19,10 @@ from django.db.models import (
     Model,
     UUIDField,
 )
+from django_prometheus.models import ExportModelOperationsMixin
 
 
-class Bank(Model):
+class Bank(ExportModelOperationsMixin('bank'), Model):
     '''
     Represents the financial institution responsible for issuing loans.
 
@@ -62,7 +63,7 @@ class Bank(Model):
     )
 
 
-class Loan(Model):
+class Loan(ExportModelOperationsMixin('loan'), Model):
     '''
     Represents a loan taken by a client (user). Stores information such as
     loan amount, interest rate, client details, and IP address from which
@@ -173,7 +174,7 @@ class Loan(Model):
         return payment, change
 
 
-class LoanInstallment(Model):
+class LoanInstallment(ExportModelOperationsMixin('loan_installment'), Model):
     '''
     Represents an installment for a loan. Each installment has a due date,
     amount, status, and payment date if the installment is paid.
@@ -230,7 +231,7 @@ class LoanInstallment(Model):
         payment = Payment.objects.create(
             id=uuid4(),
             loan_installment=self,
-            payment_date=timezone.now(),
+            payment_date=datetime.now(tz=timezone.utc),
             amount=Decimal(payment_amount),
         )
 
@@ -245,7 +246,7 @@ class LoanInstallment(Model):
         return payment
 
 
-class Payment(Model):
+class Payment(ExportModelOperationsMixin('payment'), Model):
     '''
     Represents a single payment made towards a specific loan installment.
 
@@ -265,4 +266,3 @@ class Payment(Model):
             Index(fields=['loan_installment']),
             Index(fields=['payment_date'])
         ]
-

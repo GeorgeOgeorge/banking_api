@@ -145,8 +145,10 @@ class ListPaymentsQueryParamsSerializer(PaginationQueryParamsSerializer):
     payment_date = DateField(required=False, default=None, allow_null=True, format='%Y-%m-%d', help_text="Filter payments by specific date in format YYYY-MM-DD.")
 
 class ListPaymentsResponse(CreatePaymentResponse):
-    loan_id = UUIDField(help_text='Loan associated with the payment.')
+    loan_installment_id = UUIDField(help_text='Loan installment associated with the payment.')
     bank_name = CharField(help_text='Name of the bank that granted the loan.')
+    loan_id = UUIDField(help_text='Loan associated with the payment.')
+
 
 ####################################### loan_statistics_route #######################################
 class LoanStatisticsResponse(Serializer):
